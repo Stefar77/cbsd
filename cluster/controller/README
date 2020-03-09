@@ -1,0 +1,51 @@
+
+*****************************************************************************************************
+                      This is the CBSD Cluster controller daemon.
+*****************************************************************************************************
+
+Nodes make a persistent connection to a controller and send stats and status updates. (events)
+
+Controller makes persistent connections to other controller(s) and tries to keep them in the loop.
+Controller could ask nodes to perform certain tasks.
+Controller uses authentication for users and certificates for nodes.
+
+Build-in:
+ * Node database [always memory persistent]
+ * Jail database [partly persistent/cached/running]
+ * Task database [partly persistent/cached/running]
+ 
+ * Event Queues
+
+All connections are in SSL.
+
+*****************************************************************************************************
+				PROTOCOL NODE -> CONTROLLER
+*****************************************************************************************************
+Protocol;
+-PACKET
+ [LEN_u8 - ARRAY SIZE]([CMD_u16][LEN_u8 - PARAM-ARRAY SIZE]([u16 PARAM_SIZE][PARAM])...)...
+
+   LEN      CMD       LEN     LEN_PAR         PARAMETER1
+ [0x01] [0x00 0x00]  [0x00]                                         PING
+ [0x01] [0x00 0x01]  [0x00]                                         PONG
+ [0x01] [0x00 0x02] ([0x01]  [0x00 0x04]  [0x00 0x00 0x00 0x00])    STATS
+
+
+CMD:
+	0x0000 - PING   - Node <-> Controller - Expect a pong back.
+	0x0001 - PONG   - Node <-> Controller - Response to a ping packet.
+	0x0002 - STATS  - Node --> Controller - Generic node stats.
+
+	0x0010 - LIST   - Node --> Controller - Ask for a node or list of nodes
+	0x0011 - LIST   - Node <-- Controller - Supply a node or list of nodes
+
+
+
+*****************************************************************************************************
+
+
+
+
+
+
+
