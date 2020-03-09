@@ -88,7 +88,7 @@ void cbsdNode::_handlePacket(char *packet, size_t len) {
 void cbsdNode::_hasConnected(){
 	LOG(cbsdLog::INFO)  << "Node " << m_name << " has connected";
 
-	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
+//	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
 
 	transmitRaw("At least this works, now goto sleep!\r\n");
 }
@@ -96,14 +96,14 @@ void cbsdNode::_hasConnected(){
 void cbsdNode::_hasDisconnected(){
 	LOG(cbsdLog::INFO) << "Node " << m_name << " has disconnected";
 
-	m_modules.clear();				//      We renegotiate this when it reconnects!
+//	m_modules.clear();				//      We renegotiate this when it reconnects!
 
 //	m_is_connected=false;				//	state&=~NODE_IS_CONNECTED;
 //	m_is_authenticated=false;			//	state&=~NODE_IS_AUTHENTICATED;
-	if(!m_is_maintenance){
-		m_is_warning=true;			//	If not in maintenance warn somebody..
-		m_last_warning=WARN_DISCONNECTED;
-	}
+//	if(!m_is_maintenance){
+//		m_is_warning=true;			//	If not in maintenance warn somebody..
+//		m_last_warning=WARN_DISCONNECTED;
+//	}
 
 }
 

@@ -51,7 +51,7 @@ class cbsdNode: public cbsdSocket {
 	uint32_t			m_flags;		// Local flags for node
 
 	std::map<std::string, cbsdJail *> m_jails;
-	std::map<uint16_t, cbsdModule *> m_modules;		// Links to modules enabled on the jail.
+//	std::map<uint16_t, cbsdModule *> m_modules;		// Links to modules enabled on the jail.
 
 
 /* do not change unions unless you also change the node parts of this! */
