@@ -23,21 +23,19 @@ All connections are in SSL.
 *****************************************************************************************************
 Protocol;
 -PACKET
- [LEN_u8 - ARRAY SIZE]([CMD_u16][LEN_u8 - PARAM-ARRAY SIZE]([u16 PARAM_SIZE][PARAM])...)...
+ [CHANNEL_u16]
+	CHANNEL 0:
+	 [CMD_u8][PARAMS_u8]...
+	   [PARAMSIZE_u16].....[PARAMSIZE_u16]....
+	
 
-   LEN      CMD       LEN     LEN_PAR         PARAMETER1
- [0x01] [0x00 0x00]  [0x00]                                         PING
- [0x01] [0x00 0x01]  [0x00]                                         PONG
- [0x01] [0x00 0x02] ([0x01]  [0x00 0x04]  [0x00 0x00 0x00 0x00])    STATS
+	cmd 0x00: Init node [params == 1]     -- WIP
+		param 1: array of uint16_t's (module_id's)
+		// todo: add params; arch, memory, etc
+
+	cmd 0x01: Sign-off node [params == 0] -- WIP
 
 
-CMD:
-	0x0000 - PING   - Node <-> Controller - Expect a pong back.
-	0x0001 - PONG   - Node <-> Controller - Response to a ping packet.
-	0x0002 - STATS  - Node --> Controller - Generic node stats.
-
-	0x0010 - LIST   - Node --> Controller - Ask for a node or list of nodes
-	0x0011 - LIST   - Node <-- Controller - Supply a node or list of nodes
 
 
 

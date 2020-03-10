@@ -4,6 +4,8 @@
 #include <map>
 #include "node.hpp"
 #include "../common/listener.hpp"
+#include "redis.hpp"
+
 
 class cbsdModule;
 class cbsdNode;
@@ -23,8 +25,9 @@ class cbsdNodes {
   cbsdModule				*getModule(uint16_t id){ return(m_modules[id]); }
 
  private:
-  cbsdListener				*m_listener;
-  std::map<uint32_t, cbsdNode *>	m_nodes;
+  cbsdRedis				*m_redis;					// Redis connector placeholder
+  cbsdListener				*m_listener;					// Listener for nodes
+  std::map<uint32_t, cbsdNode *>	m_nodes;					// Nodes.
 
   cbsdSocket				*acceptConnection(int fd, SSL *ssl);
 

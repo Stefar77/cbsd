@@ -32,10 +32,15 @@
 
 cbsdNodes::cbsdNodes() {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
-	if(!m_listener) return;
+	if(!m_listener) return; 					// Should never happen..
 
+	m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);
+
+	// Modules... (for now)
 	m_modules[1]=new cbsdRACCT();					// For testing...
-	
+
+	std::string tmp=m_redis->hGet("test", "demo");			// Testing more..
+	// We are alredy showing it in the hGet function..
 
        if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
 		LOG(cbsdLog::FATAL) << "Nodes failed to load, I should stop now!";
@@ -54,9 +59,11 @@ cbsdNodes::~cbsdNodes() {
 	if(NULL != m_listener){
 		delete m_listener;
 		usleep(300);
+		m_listener=NULL; 		// Why not..
 	}
-	m_listener=NULL; 		// Why not..
-	
+
+	LOG(cbsdLog::DEBUG) << "Unloading nodes";
+
 	m_mutex.lock();
 	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
 //		it->second->nodeEvent(cbsdNode::UNLOAD);
@@ -65,7 +72,13 @@ cbsdNodes::~cbsdNodes() {
 	m_nodes.clear();
 	m_mutex.unlock();
 
-	LOG(cbsdLog::DEBUG) << "Nodes unloaded";
+	LOG(cbsdLog::DEBUG) << "Unloading Redis";
+
+	if(NULL != m_redis){
+		delete m_redis;
+		m_redis=NULL;
+	}
+
 }
 
 cbsdNode *cbsdNodes::Find(const std::string name){
@@ -93,3 +106,5 @@ bool cbsdNodes::transmitRaw(const std::string &data){
         m_mutex.unlock();
 	return(true);	
 }
+
+

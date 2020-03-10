@@ -13,6 +13,12 @@
 #define	NodeKEY "/etc/ssl/GUI.key"
 #define	NodePassword "geheim"
 
+#define RedisIP "127.0.0.1"
+#define RedisPORT 6379
+#define RedisPassword "password"
+#define RedisDatabase 2
+
+
 #define LoggingLevel DEBUG
 
 

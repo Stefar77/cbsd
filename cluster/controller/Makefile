@@ -8,14 +8,13 @@ DEBUG=-g -O0
 
 ${MOP}%.o: %.cpp
 	$(CC) ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
-	( cd ../common && gmake )
 
 ${COP}%.o: %.cpp
 	true
 
 
-${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o
-	$(CC) ${DEBUG} ${LIBS} -o ${BIN}cbsddaemon ${MOP}*.o ${COP}socket.o ${COP}listener.o ${COP}log.o ${MOP}modules/*.o
+${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o ${MOP}redis.o
+	$(CC) ${DEBUG} ${LIBS} -o ${BIN}cbsddaemon ${MOP}*.o ${COP}socket.o ${COP}listener.o ${COP}log.o ${MOP}modules/*.o ${COP}connector.o
 
 clean:
 	@( cd ../ && gmake clean ) >/dev/null
@@ -25,3 +24,7 @@ clean-all:
 
 ${MOP}jail.o: ../shared/jail.cpp
 	$(CC) ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
+
+${COP}connector.o: ../common/connector.cpp
+	(cd ../common && gmake)
+

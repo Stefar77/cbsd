@@ -14,7 +14,6 @@ class cbsdListener {
 	~cbsdListener();
 
 	/* Functions/Methods */
-	bool				Start();
 	bool				setupSSL(const std::string ca, const std::string crt, const std::string key, const std::string pass);
 
 	inline std::string		&getName(){ return(m_name); }
@@ -23,15 +22,11 @@ class cbsdListener {
 
 
  private:
-	/* Functions/Methods */
+	/* Private functions/Methods */
 	void				_handleAccept(int fd);
 	void 				_handleDisconnect(int fd);
-
 	inline void			_connectFailed(int fd, SSL *ssl, const std::string &msg){ std::cout << "Connection error: " << msg << "\n"; close(fd); if(m_flag_ssl_ready){ SSL_shutdown(ssl); SSL_free(ssl);  }}
 	bool 				_initialize(void);
-
-
-
 
 
 	/* Private variables */
