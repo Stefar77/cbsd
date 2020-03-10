@@ -32,6 +32,8 @@
 
 #include "racct.hpp"
 
+// Look in the node/modules/racct.cpp for more help.
+
 MODULE_START(m_pcpu=0; m_pmem=0;)
 EVENT_LOADED( return(true); )
 EVENT_UNLOAD( LOG(cbsdLog::DEBUG) << "Trying to stop RACCT thread"; )
@@ -43,8 +45,15 @@ EVENT_THREAD(
 //	TransmitBuffered(data);
 )
 EVENT_RECEIVE( 
+	/* Reveice data from a node 
+	 *  const std::string &data
+	 *  const uint16_t    channel
+	 *  cbsdNode 	     *node;
+	 */
 
-	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from node " << node->getName() <<"."; 
+	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from node " << node->getName() << " on channel " 
+			     << std::to_string(channel) << "."; 
+
 	Transmit(node, 1, "Tesing!");
 
 )

@@ -35,10 +35,16 @@
 #include <unistd.h>
 #include <sys/sysctl.h>
 
+// Name is in the HPP file! If you clone this don't forget to change is and register it in the moduleid.hpp file!
+
 MODULE_START(m_pcpu=0; m_pmem=0;)
 EVENT_LOADED( _getHosterStats(); return(true); )
 EVENT_UNLOAD( LOG(cbsdLog::DEBUG) << "Trying to stop RACCT thread"; )
 EVENT_THREAD(
+	/* Thread of the module
+	 *  No parameters, get's looped so make sure you sleep or wait on something!
+	 */
+
 	sleep(1);		// Important!! This will loop until the node is stopped or module unloaded!
 
 	_getHosterStats();
@@ -50,12 +56,19 @@ EVENT_THREAD(
 	/* Transmit to the Controller on channel 1 */
 	TransmitBuffered(1, data);
 )
-EVENT_RECEIVE( LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller on channel " << std::to_string(channel) << "."; )
+EVENT_RECEIVE( 
+	/* Receive event from the Controller
+	 *  const std::string &data
+	 *  const uint16_t channel
+	 */
+
+	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller on channel " << std::to_string(channel) << "."; 
+)
 
 MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
 
 
-// User functions...
+// User functions get defined here (and should also be defined in the HPP file).
 
 void	cbsdRACCT::_getHosterStats(void){
 

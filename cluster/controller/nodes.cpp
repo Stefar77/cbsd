@@ -39,6 +39,9 @@ cbsdNodes::cbsdNodes() {
 	// Modules... (for now)
 	m_modules[1]=new cbsdRACCT();					// For testing...
 
+	uint32_t tmpnr=m_redis->hSet("test", "demo", "Super");		// Testing more..
+	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
+
 	std::string tmp=m_redis->hGet("test", "demo");			// Testing more..
 	LOG(cbsdLog::DEBUG) << "Redis returned: test:demo='" << tmp << "'";
 	

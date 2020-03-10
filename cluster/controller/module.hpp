@@ -15,10 +15,10 @@
 #define MODULE_STOP(...) APPEND(MYNAME,MODULE_NAME)::~APPEND(MYNAME,MODULE_NAME)() { __VA_ARGS__ } 
 #define EVENT_LOADED(...) bool APPEND(MYNAME,MODULE_NAME)::moduleLoaded(){ __VA_ARGS__ }
 #define EVENT_UNLOAD(...) void APPEND(MYNAME,MODULE_NAME)::moduleUnloading(){ __VA_ARGS__ }
-#define EVENT_RECEIVE(...) void APPEND(MYNAME,MODULE_NAME)::moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data){ __VA_ARGS__ }
+#define EVENT_RECEIVE(...) void APPEND(MYNAME,MODULE_NAME)::moduleReceive(cbsdNode *node, const uint16_t channel, const std::string &data){ __VA_ARGS__ }
 #define EVENT_THREAD(...) void APPEND(MYNAME,MODULE_NAME)::moduleThread(){ __VA_ARGS__ }
 
-#define MODULE_HPP_START(...) class APPEND(MYNAME,MODULE_NAME): public cbsdModule { friend class cbsdNodes; public: APPEND(MYNAME,MODULE_NAME)(); ~APPEND(MYNAME,MODULE_NAME)(); private: void moduleUnloading() override; bool moduleLoaded() override; void moduleThread() override; void moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data) override; __VA_ARGS__
+#define MODULE_HPP_START(...) class APPEND(MYNAME,MODULE_NAME): public cbsdModule { friend class cbsdNodes; public: APPEND(MYNAME,MODULE_NAME)(); ~APPEND(MYNAME,MODULE_NAME)(); private: void moduleUnloading() override; bool moduleLoaded() override; void moduleThread() override; void moduleReceive(cbsdNode *node, const uint16_t channel, const std::string &data) override; __VA_ARGS__
 #define MODULE_HPP_DONE(...) __VA_ARGS__ };
 
 class cbsdNode;

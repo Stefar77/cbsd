@@ -78,16 +78,20 @@ std::string cbsdRedis::_doRequest(std::vector<std::string> oplist){
 
 	if(!isConnected() && !_doConnect()) return("");	// throw an exception?!
 
+	std::unique_lock<std::mutex> lk(m_mutex);
+
 	m_response = "";	// TODO: do this the right way..
 	if(!TransmitRaw(query))	return(std::string("")); // Same?!
 
-	std::unique_lock<std::mutex> lk(m_mutex);
 	m_cv.wait(lk);					// This needs some sort of timeout!
-	lk.unlock();
-	
+
 	return(m_response);
 }
 
+uint32_t cbsdRedis::_intResult(const std::string &data){
+	if(data.substr(0,1) != ":") return(255);		// TODO: Invalid response. throw exception here?!
+	return(std::stoi(data.substr(1)));
+}
 
 /* Queue functions */
 uint32_t cbsdRedis::Publish(const std::string &queue, const std::string &event){
@@ -95,7 +99,7 @@ uint32_t cbsdRedis::Publish(const std::string &queue, const std::string &event){
 	std::string data=_doRequest(oplist);
 
 	LOG(cbsdLog::DEBUG) << "Redis result: [" << data << "]";
-	return(0);
+	return(_intResult(data));
 }
 
 /* HASH functions */
@@ -113,11 +117,7 @@ std::string cbsdRedis::hGet(const std::string &hash, const std::string &key){
 
 uint32_t cbsdRedis::hSet(const std::string &hash, const std::string &key, const std::string &val){
 	std::vector<std::string> oplist = {"HSET", hash, key, val};
-	std::string data=_doRequest(oplist);
-
-	LOG(cbsdLog::DEBUG) << "Redis result: [" << data << "]";
-
-	return(0);
+	return(_intResult(_doRequest(oplist)));
 }
 
 bool	cbsdRedis::_handleData(const std::string &data){

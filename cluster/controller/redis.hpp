@@ -24,6 +24,8 @@ class cbsdRedis: public cbsdConnector {
 	bool 			_doConnect();
 	std::string 		_doRequest(std::vector<std::string> oplist);
 	bool			_handleData(const std::string &data) override;
+	uint32_t		_intResult(const std::string &data);
+
 
 
 	std::condition_variable	m_cv;
