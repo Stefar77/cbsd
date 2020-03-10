@@ -32,6 +32,7 @@
 
 #include <iostream>		// std::cout 
 #include "master.hpp"
+#include "../config.hpp"
 
 cbsdMaster::cbsdMaster(): cbsdConnector("Master") {
 	m_jails.clear();
@@ -91,7 +92,7 @@ bool cbsdMaster::loadModule(cbsdModule *mod){
 }
 
 bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
-	if(!setupSSL("/etc/ssl/clusterca.crt", "/etc/ssl/GUI.crt", "/etc/ssl/GUI.key", "geheim")){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
+	if(!setupSSL(ClusterCA, NodeCRT, NodeKEY, NodePassword)){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
 	if(!Connect(hostname, port)){ LOG(cbsdLog::FATAL) << "Master failed to connect!"; return(false); }
 
 	std::string mod_list = std::string();

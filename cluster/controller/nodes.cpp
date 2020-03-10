@@ -27,20 +27,25 @@
 
 #include "module.hpp"
 #include "modules/racct.hpp"
+#include "../config.hpp"
+
 
 cbsdNodes::cbsdNodes() {
-	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, 1234, "Node-Listener");
+	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
 	if(!m_listener) return;
 
 	m_modules[1]=new cbsdRACCT();					// For testing...
 	
-	if(m_listener->Start()){
-		m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");		// For testing...
 
-		LOG(cbsdLog::DEBUG) << "Nodes loaded";
-	}else{
+       if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
 		LOG(cbsdLog::FATAL) << "Nodes failed to load, I should stop now!";
+		return;
 	}
+//	if(!m_listener->_initialize()) return(false);
+                                                     
+	m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");		// For testing...
+
+	LOG(cbsdLog::DEBUG) << "Nodes loaded";
 }
 
 cbsdNodes::~cbsdNodes() {

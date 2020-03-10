@@ -135,7 +135,10 @@ bool cbsdListener::setupSSL(const std::string ca, const std::string crt, const s
 
 	LOG(cbsdLog::DEBUG) << "SSL Initialized";
 	
-	return((m_flag_ssl_ready=true));
+	if(_initialize()) return((m_flag_ssl_ready=true));
+
+	// Clear context?!
+	return(false);
 }
 
 
@@ -334,13 +337,3 @@ void cbsdListener::listenThreadHandler(void){
 }
 
 
-bool cbsdListener::Start(){
-
-	if(!setupSSL("/etc/ssl/clusterca.crt", "/etc/ssl/Controller.crt", "/etc/ssl/Controller.key", "geheim")) return(false);
-	if(!_initialize()) return(false);
-
-	
-
-
-	return(true);
-}

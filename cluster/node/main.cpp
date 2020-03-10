@@ -31,6 +31,7 @@
 #include "../common/version.hpp"
 #include "master.hpp"
 #include "modules/racct.hpp"
+#include "../config.hpp"
 
 cbsdMaster	*master;
 bool		keepRunning;
@@ -60,14 +61,14 @@ int main(int argc, char **argv){
 	signal(SIGTERM, signalHandler);  
 
 
-	LOGGER_INIT(cbsdLog::DEBUG, std::cout);
+	LOGGER_INIT(cbsdLog::LoggingLevel, std::cout);
 
 	LOG(cbsdLog::INFO) << "CBSD Node daemon version " << VERSION;
 
 	master=new cbsdMaster();
 	master->loadModule(new cbsdRACCT());			// Load modules first, then add contoller so it can negotiate.
 
-	master->doSetup("127.0.0.1", 1234);
+	master->doSetup(ControllerIP, ControllerPORT);
 
 	while(keepRunning){
 		/*   
@@ -81,3 +82,13 @@ int main(int argc, char **argv){
 	delete master;
 	exit(rc);
 }
+
+
+//#define ClusterCA /etc/ssl/clusterca.crt
+//#define ControllerCRT /etc/ssl/Controller.crt
+//#define ControllerKEY /etc/ssl/Controller.key
+//#define NodeCRT /etc/ssl/GUI.crt
+//#define NodeKEY /etc/ssl/GUI.key
+//#define LoggingLevel DEBUG
+
+

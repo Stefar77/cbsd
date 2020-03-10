@@ -30,6 +30,7 @@
 #include "module.hpp"
 #include <csignal>
 #include "../common/version.hpp"
+#include "../config.hpp"
 
 cbsdNodes	*Nodes;
 bool		keepRunning;
@@ -49,7 +50,7 @@ int main(int argc, char **argv){
 	signal(SIGHUP, signalHandler);  
 	signal(SIGTERM, signalHandler);  
 
-	LOGGER_INIT(cbsdLog::DEBUG, std::cout);
+	LOGGER_INIT(cbsdLog::LoggingLevel, std::cout);
 
 	LOG(cbsdLog::INFO) << "CBSD Controller daemon version " << VERSION;
 
