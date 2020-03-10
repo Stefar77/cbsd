@@ -158,12 +158,13 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 				data=data.substr(6+(items*2));
 			}
 			m_has_negotiated=true;		
-			m_is_authenticated=true;		// TODO
-
+			m_is_authenticated=true;		// TODO: for now it's OK we have certs and firewall..
 			break;
+
 		default:
 			LOG(cbsdLog::WARNING) << "Node " << m_name << " said something unknown/invalid!";
 			break;
+
 	}
 
 	return(false);

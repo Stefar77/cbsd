@@ -30,12 +30,12 @@
 
 cbsdNodes::cbsdNodes() {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, 1234, "Node-Listener");
-
 	if(!m_listener) return;
-	m_modules[1]=new cbsdRACCT();
+
+	m_modules[1]=new cbsdRACCT();					// For testing...
 	
 	if(m_listener->Start()){
-		m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");
+		m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");		// For testing...
 
 		LOG(cbsdLog::DEBUG) << "Nodes loaded";
 	}else{

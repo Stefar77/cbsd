@@ -63,7 +63,7 @@ class cbsdNode: public cbsdSocket {
 		 uint32_t		m_has_error:1;		// Node had some error user did not ack yet
 		 uint32_t		m_has_warning:1;	// Node had a warning user did not ack yet
 		 uint32_t		m_has_negotiated:1;	// Node has nogotiated the modules and stuff
-		 uint32_t		m_reserved_flags:11;	// not used yet
+		 uint32_t		m_reserved_flags:10;	// not used yet
 		 uint32_t		m_is_maintenance:1;	// Node is in maintenance modus, do not alert
 		 uint32_t		m_is_authenticated:1;	// Node is authenticated
 		 uint32_t		m_is_connected:1;

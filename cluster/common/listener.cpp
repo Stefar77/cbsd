@@ -259,6 +259,8 @@ void cbsdListener::_handleAccept(int fd){
 			return;
 		}
 
+		LOG(cbsdLog::DEBUG) << "TODO: Store and check '" << name << "' certificate";
+
 		tflags = fcntl(connfd, F_GETFL, 0);
 		if(tflags == 0){ 
 			_connectFailed(connfd, ssl, "Error: fcntl error."); 
