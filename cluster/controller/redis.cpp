@@ -38,29 +38,54 @@ cbsdRedis::cbsdRedis(const std::string &host, uint16_t port, const std::string &
 }
 
 cbsdRedis::~cbsdRedis() {
+	m_response="";
+	m_cv.notify_all();			// Wakie wakie..
 	LOG(cbsdLog::DEBUG) << "Redis connection unloaded";
 }
 
 /* Private functions */
 bool cbsdRedis::_doConnect(){
-	LOG(cbsdLog::WARNING) << "Redis failed to connect";
-	return(false);
+	if(!Connect(m_host, m_port)){
+		LOG(cbsdLog::WARNING) << "Redis failed to connect";
+		return(false);
+	}
+	if(m_password != ""){
+		std::vector<std::string> auth = {"AUTH", m_password};
+		std::string res=_doRequest(auth);
+		if(res != "+OK\r\n"){
+			LOG(cbsdLog::WARNING) << "Redis failed to authenticate";
+			Disconnect();					// We failed, disconnect so we don't try queries.
+			return(false);
+		}
+	}
+	if(m_database != 0){
+		std::vector<std::string> dbsel = {"SELECT", std::to_string(m_database)};
+		std::string res=_doRequest(dbsel);
+		if(res != "+OK\r\n"){
+			LOG(cbsdLog::WARNING) << "Redis failed to select database";
+			Disconnect();					// We failed, disconnect so we don't try queries.
+			return(false);
+		}
+	}
+	return(true);		// We are happy and connected! [for now]
 }
 
 std::string cbsdRedis::_doRequest(std::vector<std::string> oplist){
 	std::string query="*"+std::to_string(oplist.size())+"\r\n";
 	for(int i=0; i<oplist.size(); i++) query.append("$"+std::to_string(oplist[i].size())+"\r\n"+oplist[i]+"\r\n");
 
-	LOG(cbsdLog::DEBUG) << "Redis query: [" << query << "]";
+//	LOG(cbsdLog::DEBUG) << "Redis query: [" << query << "]";
 
-	if(!m_is_connected && !_doConnect()) return("");	// throw an exception?!
+	if(!isConnected() && !_doConnect()) return("");	// throw an exception?!
 
-	TransmitRaw(query);
-	// Wait for response..
+	m_response = "";	// TODO: do this the right way..
+	if(!TransmitRaw(query))	return(std::string("")); // Same?!
 
-
-
-	return(std::string("ok"));
+	std::unique_lock<std::mutex> lk(m_mutex);
+	m_cv.wait(lk);					// This needs some sort of timeout!
+	lk.unlock();
+	
+	return(m_response);
 }
 
 
@@ -78,8 +103,11 @@ std::string cbsdRedis::hGet(const std::string &hash, const std::string &key){
 	std::vector<std::string> oplist = {"HGET", hash, key};
 	std::string data=_doRequest(oplist);
 
-	LOG(cbsdLog::DEBUG) << "Redis result: [" << data << "]";
-	return("");
+	if(data.substr(0,1) != "$") return("");			// Invalid response.
+	std::size_t pos=data.find("\n");
+	if(pos == std::string::npos) return("");		// Invalid or incomplete response
+
+	return(data.substr(pos+1,data.size()-(pos+3)));
 
 }
 
@@ -93,7 +121,12 @@ uint32_t cbsdRedis::hSet(const std::string &hash, const std::string &key, const 
 }
 
 bool	cbsdRedis::_handleData(const std::string &data){
-	LOG(cbsdLog::DEBUG) << "Redis received: [" << data << "]";
+
+//	LOG(cbsdLog::DEBUG) << "Redis received: [" << data << "]";
+
+	m_response=data;
+	m_cv.notify_all();			// Wakie wakie..
+
 	return(true);
 }
 

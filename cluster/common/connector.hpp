@@ -22,7 +22,8 @@ class cbsdConnector {
 	bool				Connect(const std::string &hostname, const uint16_t port);
 	bool				setupSSL(const std::string &ca, const std::string &cert, const std::string &key, const std::string &pass);
 	bool 				TransmitRaw(const std::string &data);
-
+	bool				isConnected(){ return(m_is_connected); }
+	void 				Disconnect();
 
  protected:
 	void				_doUnload();
@@ -47,7 +48,6 @@ class cbsdConnector {
 	int                             m_kq;                           // Kernel Queue
         struct kevent                   m_evSet;                        //
         struct kevent                   m_evList[32];                   // Event list
-
 
 	std::thread			threadID;
 

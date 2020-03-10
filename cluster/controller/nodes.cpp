@@ -40,9 +40,10 @@ cbsdNodes::cbsdNodes() {
 	m_modules[1]=new cbsdRACCT();					// For testing...
 
 	std::string tmp=m_redis->hGet("test", "demo");			// Testing more..
-	// We are alredy showing it in the hGet function..
+	LOG(cbsdLog::DEBUG) << "Redis returned: test:demo='" << tmp << "'";
+	
 
-       if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
+	if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
 		LOG(cbsdLog::FATAL) << "Nodes failed to load, I should stop now!";
 		return;
 	}

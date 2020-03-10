@@ -66,6 +66,9 @@ cbsdConnector::~cbsdConnector(){
 	LOG(cbsdLog::DEBUG) << "Connector " << m_name << " unloaded";
 }
 
+void cbsdConnector::Disconnect(){
+	_ConnectFailed(); // for now.
+}
 
 inline bool cbsdConnector::_ConnectFailed(){
 	m_is_connected=false;
@@ -126,9 +129,6 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 			return(_ConnectFailed()); 
 		}
 		X509_free(cert);
-	}else{
-		LOG(cbsdLog::CRITICAL) << "Non SSL sockets is not yet supported!";
-		return(_ConnectFailed());
 	}
 
 	m_is_connected=true;
@@ -193,23 +193,25 @@ bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, con
 }
 
 bool cbsdConnector::TransmitRaw(const std::string &data){
+	int ret;
 	if(m_ssl){
-		int ret=SSL_write(m_ssl, data.c_str(), data.size()); 
-		if(ret != data.size()){ LOG(cbsdLog::WARNING) << "Incomplete write!"; _ConnectFailed(); }else return(true);
-		
+		ret=SSL_write(m_ssl, data.c_str(), data.size()); 	
+	}else{
+		ret=write(m_sock, data.c_str(), data.size()); 
+
 	}
+	if(ret != data.size()){ LOG(cbsdLog::WARNING) << "Incomplete write!"; _ConnectFailed(); }else return(true);
+
 	return(false);
 
 }
 
 void cbsdConnector::threadHandler(void){
 	if(m_is_thread_running) return;			// should never happen.. but ok..
-	LOG(cbsdLog::DEBUG) << "Starting connector thread handler";
+	LOG(cbsdLog::DEBUG) << "Starting connector thread handler for " << m_name;
 
 	m_is_thread_running=true;
 	while(!m_is_thread_stopping){
-		LOG(cbsdLog::DEBUG) << "Connection thread waiting for events";
-
 		int nev = kevent(m_kq, NULL, 0, m_evList, 32, NULL);		// Fetch k-queue events..
 		for (int i = 0; i < nev; i++) {
 			int fd = (int)m_evList[i].ident;
@@ -226,7 +228,12 @@ void cbsdConnector::threadHandler(void){
 			}else if (m_evList[i].filter == EVFILT_READ && fd == m_sock){
 				std::string data=std::string();				// Te dump it in a std::string..
 				char buffer[2048];
-				int bytes_read=SSL_read(m_ssl, buffer, sizeof(buffer));
+				int bytes_read;
+				if(m_ssl){
+					bytes_read=SSL_read(m_ssl, buffer, sizeof(buffer));
+				}else{
+					bytes_read=read(fd, buffer, sizeof(buffer));
+				}
                                 data.append(buffer, bytes_read);
                                 if(!_handleData(data)){
 					LOG(cbsdLog::WARNING) << "Connection was dropped due to invalid data!";
@@ -241,7 +248,7 @@ void cbsdConnector::threadHandler(void){
 	m_is_thread_running=false;
 	m_is_thread_stopping=false;
 
-	LOG(cbsdLog::DEBUG) << "Stopped connector thread handler";
+	LOG(cbsdLog::DEBUG) << "Stopped connector thread handler for " << m_name;
 }
 
 

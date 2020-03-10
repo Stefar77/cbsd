@@ -23,19 +23,24 @@ class cbsdRedis: public cbsdConnector {
  private:
 	bool 			_doConnect();
 	std::string 		_doRequest(std::vector<std::string> oplist);
-	virtual bool		_handleData(const std::string &data) override;
+	bool			_handleData(const std::string &data) override;
 
-	std::string		m_host;	
-	std::string		m_password;	
-	uint16_t		m_port;	
-	uint32_t		m_database;	
 
+	std::condition_variable	m_cv;
+	std::mutex		m_mutex;
+
+	std::string		m_response;			// Last response..
+	std::string		m_host;				// Redis host/ip to connect to
+	std::string		m_password;			// Password for Redis database
+	uint32_t		m_database;			// Database number
+	uint16_t		m_port;				// Port number
 	union	{
-		uint32_t		m_flags;
-		struct {
-		 uint32_t		m_reserved_flags:31;
-		 uint32_t		m_is_connected:1;
-		};
+		uint16_t		m_flags;
+// We could just as well use the flags of the parent..
+//		struct {
+//		 uint16_t		m_reserved_flags:15;
+//		 uint16_t		m_is_connected:1;
+//		};
 	};
 
 };
