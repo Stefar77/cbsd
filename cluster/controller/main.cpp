@@ -27,7 +27,7 @@
 
 #include <unistd.h>		// sleep
 #include <iostream>		// std::cout 
-#include "nodes.hpp"
+#include "module.hpp"
 #include <csignal>
 #include "../common/version.hpp"
 

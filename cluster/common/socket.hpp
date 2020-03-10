@@ -21,6 +21,7 @@
 
 class cbsdSocket {
  friend class cbsdListener;
+ friend class cbsdModule;
  public:
 	cbsdSocket();
 	virtual ~cbsdSocket();

@@ -47,9 +47,11 @@ EVENT_THREAD(
 	int tmp1=0|m_pcpu, tmp2=0|m_pmem;
 	std::string data = "CPU=" + std::to_string(tmp1) + ",MEM=" + std::to_string(tmp2) + ",FILES=" + std::to_string(m_openfiles) + ",TEMP=" + std::to_string(m_temperature);
 
-	TransmitBuffered(data);
+	/* Transmit to the Controller on channel 1 */
+	TransmitBuffered(1, data);
 )
-EVENT_RECEIVE( LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller."; )
+EVENT_RECEIVE( LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller on channel " << std::to_string(channel) << "."; )
+
 MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
 
 

@@ -19,7 +19,7 @@ clean:
 	@( cd ../ && gmake clean ) >/dev/null
 
 clean-all:
-	rm ../../obj/node/*.o ../../obj/node/modules/*.o ../../bin/cbsdnode *.core >/dev/null 2>&1 || true
+	rm ../../obj/node/*.o ../../obj/node/modules/*.o ../../bin/cbsdnode ../../obj/common/*.o *.core >/dev/null 2>&1 || true
 
 ${MOP}jail.o: ../shared/jail.cpp
 	$(CC) ${DEBUG} -DISNODE -Wall -std=c++11 ${INCLUDES} -c -o $@ $<

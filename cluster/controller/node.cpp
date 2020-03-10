@@ -25,9 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "node.hpp"
+#include "module.hpp"
 
-cbsdNode::cbsdNode(const uint32_t id, const std::string name) {
+cbsdNode::cbsdNode(cbsdNodes *nodes, const uint32_t id, const std::string name) {
+	m_nodes=nodes;
 	m_id=id;				// ID number in the database
 	m_name=name;				// Name of the node
 	m_flags=0;				// Clear all flags.
@@ -88,9 +89,9 @@ void cbsdNode::_handlePacket(char *packet, size_t len) {
 void cbsdNode::_hasConnected(){
 	LOG(cbsdLog::INFO)  << "Node " << m_name << " has connected";
 
-//	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
+	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
 
-	transmitRaw("At least this works, now goto sleep!\r\n");
+	transmitRaw("testing");
 }
 
 void cbsdNode::_hasDisconnected(){
@@ -98,41 +99,116 @@ void cbsdNode::_hasDisconnected(){
 
 //	m_modules.clear();				//      We renegotiate this when it reconnects!
 
-//	m_is_connected=false;				//	state&=~NODE_IS_CONNECTED;
-//	m_is_authenticated=false;			//	state&=~NODE_IS_AUTHENTICATED;
-//	if(!m_is_maintenance){
-//		m_is_warning=true;			//	If not in maintenance warn somebody..
-//		m_last_warning=WARN_DISCONNECTED;
-//	}
+	m_is_connected=false;				//	state&=~NODE_IS_CONNECTED;
+	m_is_authenticated=false;			//	state&=~NODE_IS_AUTHENTICATED;
+	m_has_negotiated=false;				//	Renegotiate when it logs in again
+	if(!m_is_maintenance){				//	
+		m_has_warning=true;			//	If not in maintenance warn somebody..
+//		m_last_warning=WARN_DISCONNECTED;	//	Maybe do this?!
+	}
 
 }
 
-void cbsdNode::_hasData(const std::string &data){
-	uint16_t *tmp=(uint16_t *)data.data();
-	uint16_t mod_id=*tmp;
+bool cbsdNode::_doSysOp(std::string &data){
+	LOG(cbsdLog::DEBUG) << "Input sys_op: [" << data << "]";
+	return(false);
+}
 
-	if(mod_id != 0){
-		LOG(cbsdLog::DEBUG) << "Node " << m_name << " mod " << std::to_string(mod_id) <<  " said: [" << data.substr(2) << "]";
-		return;	// TODO!!
+bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
+	uint8_t *cmd=(uint8_t *)data.data()+2;				// Command
+	uint8_t *params=(uint8_t *)data.data()+3;			// # parameters to expect
+	uint16_t *tmp=(uint16_t *)((uint8_t *)data.data()+4);		// Size of first parameter
+
+	if(!m_has_negotiated){
+		if(*cmd != 0 || channel != 0){
+			LOG(cbsdLog::DEBUG) << "Node " << m_name << " invalid negotiation";
+			return(false);	// TODO!!
+		}
 	}
 
-	uint8_t *cmd=(uint8_t *)data.data()+2;
-	uint8_t *params=(uint8_t *)data.data()+3;
-	tmp=(uint16_t *)((uint8_t *)data.data()+4);
 
 	switch(*cmd){
 		case 0:
-			if(*params != 1){
-				LOG(cbsdLog::WARNING) << "Node " << m_name << " is singing on with invalid parameters";
+			if(*params != 1){	// Currently we only have 1 parameter and that is an array of uint16's (mod_id's)
+				LOG(cbsdLog::WARNING) << "Node " << m_name << " is signing on with invalid parameters";
 				break;
 			}
-			LOG(cbsdLog::INFO) << "Node " << m_name << " is singing on with " << std::to_string(*tmp/2) << " modules";
+			if(data.size()-6 < *tmp){
+				LOG(cbsdLog::WARNING) << "Node " << m_name << " is sending incomplete packages";
+				return(false);
+			}
+			// Did we already do this?
+			if(m_has_negotiated){
+				LOG(cbsdLog::WARNING) << "Node " << m_name << " is trying to renegotiate";
+				return(false);
+			}
+
+			{	// Container because I want to use a local var...
+				uint16_t items=*tmp/2;
+				for(uint16_t i=1; i<=items; i++){
+					tmp=(uint16_t *)((uint8_t *)data.data()+4+(i*2));
+					cbsdModule *module=m_nodes->getModule(*tmp);
+					if(NULL == module){
+						LOG(cbsdLog::DEBUG) << "Node has module " << std::to_string(*tmp) << " and we don't";
+						continue;	// Not found/unknown, we skip it/do not enable it.
+					}
+					m_modules[*tmp]=module;		// Add module to the node's enabled modules list
+					LOG(cbsdLog::DEBUG) << "Node has module " << std::to_string(*tmp);
+				}
+				data=data.substr(6+(items*2));
+			}
+			m_has_negotiated=true;		
+			m_is_authenticated=true;		// TODO
+
 			break;
 		default:
 			LOG(cbsdLog::WARNING) << "Node " << m_name << " said something unknown/invalid!";
 			break;
 	}
 
+	return(false);
+}
+
+
+void cbsdNode::_hasData(const std::string &in_data){
+	std::string data=in_data;
+	if(data.size() < 2) return;			// To small?
+	uint16_t *tmp=(uint16_t *)data.data();
+	uint16_t channel=*tmp;
+
+	if(!m_is_authenticated){ if(!_doAuth(data, channel)) return; } 
+
+	while(data.size() > 2){
+		tmp=(uint16_t *)data.data(); channel=*tmp;
+
+		if(channel == 0){
+			if(!_doSysOp(data)) return;
+		}else{
+			if(data.size() < 8) return;			// To small!
+			cbsdModule *mod=m_modules[channel];
+			tmp=(uint16_t *)data.data()+1;			// Type
+			uint32_t *len=(uint32_t *)data.data()+1;	// Payload length
+
+			if(*len > data.size()){
+				if(mod){
+					LOG(cbsdLog::DEBUG) << "Module " << mod->getName() << " on node " << m_name << " is sending invalid packages!";
+				}else{
+					LOG(cbsdLog::DEBUG) << "Node " << m_name << " is sending invalid packages!";
+				}
+				return;
+			}
+
+			if(!mod){
+				LOG(cbsdLog::DEBUG) << "Node " << m_name << " mod " << std::to_string(channel) <<  " should not be talking to me!";
+				data=data.substr(*len+8);
+			}else{
+				mod->moduleReceive(this, *tmp, data.substr(8,*len));
+				data=data.substr(*len+8);
+
+			}
+
+		}
+	}
 
 
 }

@@ -1,4 +1,4 @@
-/* module.cpp - Module class for CBSD Cluster Node
+/* module.cpp - Module class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -26,7 +26,7 @@
  */
 
 #include <iostream>		// std::cout 
-#include "master.hpp"
+#include "node.hpp"
 
 cbsdModule::cbsdModule(const uint16_t id, const std::string &name) : m_name(name), m_id(id) {
         m_flags = 0;
@@ -65,8 +65,8 @@ void    cbsdModule::threadHandler(void){
 }
 
 
-bool	cbsdModule::doLoad(cbsdMaster *master){
-	m_master=master;
+bool	cbsdModule::doLoad(cbsdNodes *nodes){
+	m_nodes=nodes;
 
 	if(!moduleLoaded()) return(false);
 
@@ -88,21 +88,32 @@ void	cbsdModule::doUnload(){
 
 }
 
-void	cbsdModule::TransmitBuffered(const uint16_t code, const std::string &data){
-	if(!m_master){ // 'Should never happen!' -- famous last words..
-		LOG(cbsdLog::WARNING) << "Module '" << m_name << "' has no master!";
-		return; 
+bool	cbsdModule::transmitRaw(cbsdNode *node, const std::string &data){
+	if(!node && !m_nodes){ // 'Should never happen!' -- famous last words..
+		LOG(cbsdLog::WARNING) << "Module '" << m_name << "' tried to transmit to or with NULL!";
+		return(false); 
 	} 
 
 	std::string tmp=std::string();
 	tmp.append((char *)&m_id,2);
-	tmp.append((char *)&code,2);
-	uint32_t len=data.size();
-	tmp.append((char *)&len,4);
-
 	tmp.append(data);
-	m_master->TransmitRaw(tmp);
+	if(node) return(node->transmitRaw(tmp)); else return(m_nodes->transmitRaw(tmp));
 	
+}
+
+bool	cbsdModule::Transmit(cbsdNode *node, const uint16_t channel, const std::string &data){
+	if(!node && !m_nodes){ // 'Should never happen!' -- famous last words..
+		LOG(cbsdLog::WARNING) << "Module '" << m_name << "' tried to transmit to or with NULL!";
+		return(false); 
+	} 
+
+	std::string tmp=std::string();
+	tmp.append((char *)&m_id,2);
+	tmp.append((char *)&channel,2);
+	uint32_t len=tmp.size();
+	tmp.append((char *)&len,4);
+	tmp.append(data);
+	if(node) return(node->transmitRaw(tmp)); else return(m_nodes->transmitRaw(tmp));	
 }
 
 

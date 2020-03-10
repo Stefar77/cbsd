@@ -33,8 +33,7 @@
 #include <iostream>		// std::cout 
 #include "master.hpp"
 
-cbsdMaster::cbsdMaster() {
-	m_server=NULL;
+cbsdMaster::cbsdMaster(): cbsdConnector("Master") {
 	m_jails.clear();
 	m_jids.clear();
 	m_modules.clear();
@@ -61,6 +60,7 @@ cbsdMaster::cbsdMaster() {
 
 
 cbsdMaster::~cbsdMaster() {
+	_doUnload();							// Stop the thread..
 	LOG(cbsdLog::DEBUG) << "Stopping all modules";
 	UNLOAD(uint16_t, cbsdModule, m_modules);
 	LOG(cbsdLog::DEBUG) << "All modules stopped";
@@ -70,8 +70,6 @@ cbsdMaster::~cbsdMaster() {
 	m_jids.clear();
 	UNLOAD(std::string, cbsdJail, m_jails);
 	LOG(cbsdLog::DEBUG) << "Unloading jails done";
-
-	if(m_server) delete m_server;
 
 	LOG(cbsdLog::DEBUG) << "Master unloaded";
 }
@@ -92,19 +90,9 @@ bool cbsdMaster::loadModule(cbsdModule *mod){
 	return(false);
 }
 
-bool cbsdMaster::addController(const std::string &hostname, uint16_t port){
-	if(m_server) return(false);
-	m_server = new cbsdConnector("Controller");
-	if(!m_server->setupSSL("/etc/ssl/clusterca.crt", "/etc/ssl/GUI.crt", "/etc/ssl/GUI.key", "geheim")){
-		delete m_server;
-		return(false);
-	}
-
-	if(!m_server->Connect(hostname, port)){
-		delete m_server;
-		return(false);
-	}
-
+bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
+	if(!setupSSL("/etc/ssl/clusterca.crt", "/etc/ssl/GUI.crt", "/etc/ssl/GUI.key", "geheim")){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
+	if(!Connect(hostname, port)){ LOG(cbsdLog::FATAL) << "Master failed to connect!"; return(false); }
 
 	std::string mod_list = std::string();
 	struct {
@@ -121,13 +109,16 @@ bool cbsdMaster::addController(const std::string &hostname, uint16_t port){
 
 	// Negotiate modules..
 	for(std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++) mod_list.append((char *)&it->first, 2);
-	Transmit(mod_list);
+	TransmitRaw(mod_list);
 
 	return(true);
 }
 
-bool cbsdMaster::Transmit(const std::string &data){
-	if(!m_server) return(false);
+//bool cbsdMaster::Transmit(const std::string &data){
+//	return(m_server->Transmit(data));
+//}
 
-	return(m_server->Transmit(data));
+bool cbsdMaster::_handleData(const std::string &data){
+	LOG(cbsdLog::DEBUG) << "Got data from server [" << data << "]";
+	return(true);
 }

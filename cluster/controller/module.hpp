@@ -1,7 +1,7 @@
 #ifndef MODULE_HPP
 #define MODULE_HPP
 
-#include "master.hpp"
+#include "nodes.hpp"
 #include "../common/moduleids.hpp"
 
 #define APPEND_STR(A, B) A ## B
@@ -15,16 +15,15 @@
 #define MODULE_STOP(...) APPEND(MYNAME,MODULE_NAME)::~APPEND(MYNAME,MODULE_NAME)() { __VA_ARGS__ } 
 #define EVENT_LOADED(...) bool APPEND(MYNAME,MODULE_NAME)::moduleLoaded(){ __VA_ARGS__ }
 #define EVENT_UNLOAD(...) void APPEND(MYNAME,MODULE_NAME)::moduleUnloading(){ __VA_ARGS__ }
-#define EVENT_RECEIVE(...) void APPEND(MYNAME,MODULE_NAME)::moduleReceive(const uint16_t channel, const std::string &data){ __VA_ARGS__ }
+#define EVENT_RECEIVE(...) void APPEND(MYNAME,MODULE_NAME)::moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data){ __VA_ARGS__ }
 #define EVENT_THREAD(...) void APPEND(MYNAME,MODULE_NAME)::moduleThread(){ __VA_ARGS__ }
 
-#define MODULE_HPP_START(...) class APPEND(MYNAME,MODULE_NAME): public cbsdModule { friend class cbsdModule; public: APPEND(MYNAME,MODULE_NAME)(); ~APPEND(MYNAME,MODULE_NAME)(); private: void moduleUnloading() override; bool moduleLoaded() override; void moduleThread() override; void moduleReceive(const uint16_t channel, const std::string &data) override; __VA_ARGS__
+#define MODULE_HPP_START(...) class APPEND(MYNAME,MODULE_NAME): public cbsdModule { friend class cbsdNodes; public: APPEND(MYNAME,MODULE_NAME)(); ~APPEND(MYNAME,MODULE_NAME)(); private: void moduleUnloading() override; bool moduleLoaded() override; void moduleThread() override; void moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data) override; __VA_ARGS__
 #define MODULE_HPP_DONE(...) __VA_ARGS__ };
 
-
-class cbsdMaster;
+class cbsdNode;
 class cbsdModule {
- friend class cbsdMaster;
+ friend class cbsdNode;
 
  public:
 	cbsdModule(const uint16_t id, const std::string &name);
@@ -33,24 +32,25 @@ class cbsdModule {
 	/* Functions/Methods */
 	inline std::string 	&getName(){ return(m_name); }
 	inline uint16_t 	getID(){ return(m_id); }
-	void			TransmitBuffered(const uint16_t code, const std::string &data);
+	bool			transmitRaw(cbsdNode *node, const std::string &data);
+	bool			Transmit(cbsdNode *node, uint16_t channel, const std::string &data);
 	void			Disable(){ m_flag_thread_disabled=true; }
 	void			Enable(){ m_flag_thread_disabled=false; }
 	bool			isEnabled(){ return(!m_flag_thread_disabled); }
 
  protected:
-	bool			 doLoad(cbsdMaster *master);
+	bool			 doLoad(cbsdNodes *nodes);
 	void			 doUnload();
 
 
  private:
-	cbsdMaster		*m_master;	// TODO: use statics?!
+	cbsdNodes		*m_nodes;	// TODO: use statics?!
 	std::string		 m_name;	
 
 	/* Functions/Methods */
 	virtual void		moduleUnloading()=0;
 	virtual bool		moduleLoaded()=0;
-	virtual void		moduleReceive(uint16_t channel, const std::string &data)=0;
+	virtual void		moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data)=0;
 	virtual void		moduleThread();
 
 	std::thread		m_threadID;                     // ThreadID for the modules thread..

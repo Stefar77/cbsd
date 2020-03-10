@@ -1,4 +1,4 @@
-/* main.cpp - Main function for CBSD Node Daemon
+/* racct.cpp - RACCT class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -23,61 +23,31 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * -------------------------------------------------------------------------------
+ * 
+ *  Collects RACCT statistics from jails, bhyves and the node.
+ *
  */
 
-#include <unistd.h>		// sleep
-#include <iostream>		// std::cout 
-#include <csignal>
-#include "../common/version.hpp"
-#include "master.hpp"
-#include "modules/racct.hpp"
+#include "racct.hpp"
 
-cbsdMaster	*master;
-bool		keepRunning;
+MODULE_START(m_pcpu=0; m_pmem=0;)
+EVENT_LOADED( return(true); )
+EVENT_UNLOAD( LOG(cbsdLog::DEBUG) << "Trying to stop RACCT thread"; )
+EVENT_THREAD(
+	sleep(10);		// Important!! This will loop until the node is stopped or module unloaded!
 
+	LOG(cbsdLog::DEBUG) << "Doing RACCT task";	
 
-/* Initialize statics */
-uint64_t cbsdUtils::page_size=sysconf(_SC_PAGE_SIZE);
-uint64_t cbsdUtils::total_memory=(sysconf(_SC_PHYS_PAGES) * cbsdUtils::page_size);
-uint32_t cbsdUtils::total_cores=sysconf(_SC_NPROCESSORS_ONLN);
+//	TransmitBuffered(data);
+)
+EVENT_RECEIVE( 
 
+	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from node " << node->getName() <<"."; 
+	Transmit(node, 1, "Tesing!");
 
-void signalHandler(int sig) {
-	switch(sig){
-		case SIGTERM: keepRunning=false; LOG(cbsdLog::WARNING) << "Signal TERM received, quitting!"; break;
-		case SIGHUP: LOG(cbsdLog::INFO) << "Signal HUP received!"; break;
-		default: LOG(cbsdLog::INFO) << "Signal " << sig << " received!";
-	}
-
-}
+)
+MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
 
 
-int main(int argc, char **argv){
-	int	rc=0;
-
-	keepRunning=true;
-	signal(SIGHUP, signalHandler);  
-	signal(SIGTERM, signalHandler);  
-
-
-	LOGGER_INIT(cbsdLog::DEBUG, std::cout);
-
-	LOG(cbsdLog::INFO) << "CBSD Node daemon version " << VERSION;
-
-	master=new cbsdMaster();
-	master->loadModule(new cbsdRACCT());			// Load modules first, then add contoller so it can negotiate.
-
-	master->doSetup("127.0.0.1", 1234);
-
-	while(keepRunning){
-		/*   
- 		 *   I love this thread! 
-		 *    - It just sleeps all the time...
-		 */
-		sleep(60);
-	}
-
-	LOG(cbsdLog::INFO) << "Shutting down node daemon!";
-	delete master;
-	exit(rc);
-}

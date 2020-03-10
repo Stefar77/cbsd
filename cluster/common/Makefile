@@ -3,9 +3,10 @@ MOP=../../obj/common/
 BIN=../../bin/
 INCLUDES=-I/usr/local/include/
 LIBS=-L/usr/local/lib -lthr -lcrypto -lutil -llz4 -lssl 
+DEBUG=-g
 
 ${MOP}%.o: %.cpp
-	$(CC) -O3 -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
+	$(CC) ${DEBUG} -O3 -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
 
 ${MOP}.depend: ${MOP}listener.o ${MOP}socket.o ${MOP}connector.o ${MOP}log.o
 

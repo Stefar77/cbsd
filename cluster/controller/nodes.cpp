@@ -25,15 +25,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "nodes.hpp"
+#include "module.hpp"
+#include "modules/racct.hpp"
 
 cbsdNodes::cbsdNodes() {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, 1234, "Node-Listener");
 
 	if(!m_listener) return;
+	m_modules[1]=new cbsdRACCT();
 	
 	if(m_listener->Start()){
-		m_nodes[1]=new cbsdNode(1, "SuperBSD");
+		m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");
 
 		LOG(cbsdLog::DEBUG) << "Nodes loaded";
 	}else{
@@ -76,4 +78,13 @@ cbsdNode *cbsdNodes::Find(const std::string name){
 cbsdSocket *cbsdNodes::acceptConnection(int fd, SSL *ssl){
 	LOG(cbsdLog::DEBUG) << "Got new connection!";
 	return(m_nodes[1]);
+}
+
+bool cbsdNodes::transmitRaw(const std::string &data){
+	m_mutex.lock();
+	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
+		if(it->second->isOnline()) it->second->transmitRaw(data);
+	}
+        m_mutex.unlock();
+	return(true);	
 }

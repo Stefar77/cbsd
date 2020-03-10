@@ -71,6 +71,8 @@ cbsdListener::~cbsdListener() {
 }
 
 bool cbsdListener::setupSSL(const std::string ca, const std::string crt, const std::string key, const std::string pass) {
+	if(m_flag_ssl_ready) return(true);
+	
 	SSL_load_error_strings();		// Initialize SSL errros
         SSL_library_init();			// Initialize Library
         OpenSSL_add_ssl_algorithms();		// Do that..
@@ -131,6 +133,7 @@ bool cbsdListener::setupSSL(const std::string ca, const std::string crt, const s
 
 	m_listenThread=listenThreadProc();
 
+	LOG(cbsdLog::DEBUG) << "SSL Initialized";
 	
 	return((m_flag_ssl_ready=true));
 }
@@ -176,10 +179,25 @@ void cbsdListener::_handleAccept(int fd){
 	int ret;
 	if(m_flag_ssl_ready){
 		ssl = SSL_new(m_ssl_ctx);
+		if(!ssl){
+			LOG(cbsdLog::CRITICAL) << "Failed to create SSL layer"; close(connfd); 
+			return;
+		}
 		SSL_set_fd(ssl, connfd);
-		if ((ret=SSL_accept(ssl)) <= 0){
-			LOG(cbsdLog::CRITICAL) << "SSL Handshake Error [" << SSL_get_error(ssl, ret) << "]"; close(connfd); 
+		try {
+			ret=SSL_accept(ssl);
+		} catch (const std::exception&) {
+			LOG(cbsdLog::CRITICAL) << "SSL Exception";
 			SSL_free(ssl);
+			close(connfd);
+			return;
+
+		}
+
+		if(ret <= 0){
+			LOG(cbsdLog::CRITICAL) << "SSL Handshake Error [" << SSL_get_error(ssl, ret) << "]"; 
+			SSL_free(ssl);
+			close(connfd); 
 			return;
 		}
 

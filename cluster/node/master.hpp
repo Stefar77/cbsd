@@ -11,25 +11,24 @@
 extern cbsdLog *Log;
 
 class cbsdJail;
-class cbsdMaster {
+class cbsdMaster: public cbsdConnector {
  public:
 	cbsdMaster();
 	~cbsdMaster();
 
 	/* Functions/Methods */
-	bool	addController(const std::string &hostname, uint16_t port);
+	bool	doSetup(const std::string &hostname, uint16_t port);
 	bool	loadModule(cbsdModule *mod);
-	bool 	Transmit(const std::string &data);
-
 
  protected:
 
 
  private:
+	bool					_handleData(const std::string &data) override;
 	std::map<uint16_t, cbsdModule *>	 m_modules;			// Modules
 	std::map<std::string, cbsdJail *>	 m_jails;			// All jails on this host, indexed on global ID number
 	std::map<uint32_t, cbsdJail *>		 m_jids;			// All running jails on this host, indexed on JID
-	cbsdConnector				*m_server;			// Connection to controller
+
 
 };
 

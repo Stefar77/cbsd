@@ -33,15 +33,30 @@ extern int ssl_callback(char *buf, int size, int rwflag, void *u);
 
 
 cbsdConnector::cbsdConnector(const std::string &name){
-	m_name=name;
-	m_flag_ssl_ready=false;
-	m_cert_pass=NULL;
-	m_ssl_ctx=NULL;	
+	m_name=name;							// My name..
+	m_cert_pass=NULL;						// Make sure this is NULL initilialized
+	m_ssl_ctx=NULL;							// No ssl context yet!
+	m_sock=-1;
+	m_flags=0;							// We start with all flags at 0!
+	m_kq=kqueue();   						// ...
+	socketpair(AF_UNIX, SOCK_STREAM, 0, m_sync_fd); 		// We use this to wake-up the thread when needed
+
 	LOG(cbsdLog::DEBUG) << "Connector " << m_name << " loaded";
 }
 
-cbsdConnector::~cbsdConnector(){
+void cbsdConnector::_doUnload(){
+	if(m_is_thread_running){
+		LOG(cbsdLog::DEBUG) << "Connector " << m_name << " stopping thread";
+		m_is_thread_stopping=true;	// Make the thread stop
+		close(m_sync_fd[0]); 		// Should wake up thread
+		threadID.join();		// We join
+	}
+}
 
+cbsdConnector::~cbsdConnector(){
+	if(m_is_thread_running) _doUnload();
+
+	_ConnectFailed();			// Make sure we are disconnected..
 	SSL_CTX_free(m_ssl_ctx);		// Free the context
 	EVP_cleanup();				// Cleanup SSL
 	m_ssl_ctx=NULL;				// ... why not ...
@@ -53,18 +68,19 @@ cbsdConnector::~cbsdConnector(){
 
 
 inline bool cbsdConnector::_ConnectFailed(){
-	if(NULL != m_ssl){
-		SSL_shutdown(m_ssl); 
-		SSL_free(m_ssl); 
-		m_ssl=NULL; 
+	m_is_connected=false;
+	if(NULL != m_ssl){					// Clean up SSL stuff
+		SSL_shutdown(m_ssl); 				//
+		SSL_free(m_ssl); 				// 
+		m_ssl=NULL; 					// Make sure we do this once.
 	}
-	if(m_sock != -1){ close(m_sock); m_sock=-1; }
-	return(false);	// Always return false..
+	if(m_sock != -1){ close(m_sock); m_sock=-1; }		// Close the socket also
+	return(false);						// We always return false..
 }
 
 bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 
-	 struct sockaddr_in             addr;
+	struct sockaddr_in             addr;
 
 	if((addr.sin_addr.s_addr=inet_addr(hostname.c_str()))==-1){ LOG(cbsdLog::CRITICAL) << "Cannot parse hostname"; return(false); }
 	if((m_sock=socket(PF_INET, SOCK_STREAM, 0))==-1){ LOG(cbsdLog::CRITICAL) << "Cannot create socket"; return(false); }
@@ -72,7 +88,7 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 
 	if (connect(m_sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){ LOG(cbsdLog::CRITICAL) << "Connection failed"; return(_ConnectFailed()); } 
 
-	if(m_flag_ssl_ready){
+	if(m_is_ssl_ready){
 		int ret;
 
 		m_ssl = SSL_new(m_ssl_ctx);
@@ -110,14 +126,27 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 			return(_ConnectFailed()); 
 		}
 		X509_free(cert);
-		return(true);
+	}else{
+		LOG(cbsdLog::CRITICAL) << "Non SSL sockets is not yet supported!";
+		return(_ConnectFailed());
 	}
 
-	LOG(cbsdLog::CRITICAL) << "Non SSL sockets is not yet supported!";
-	return(false);
+	m_is_connected=true;
+	if(!m_is_thread_running){
+		EV_SET(&m_evSet, m_sync_fd[1], EVFILT_READ, EV_ADD, 0, 0, NULL); 
+		if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed());
+                threadID=threadHandlerProc(); // Start the thread...
+	}
+
+        EV_SET(&m_evSet, m_sock, EVFILT_READ, EV_ADD, 0, 0, NULL); 
+	if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed());
+
+	return(true);
 }
 
 bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, const std::string &key, const std::string &pass){
+	if(m_is_ssl_ready) return(true);	// Pass trough or error?!
+
 	SSL_load_error_strings();		// Initialize SSL errros
         SSL_library_init();			// Initialize Library
         OpenSSL_add_ssl_algorithms();		// Do that..
@@ -160,16 +189,59 @@ bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, con
 	}
 
 	
-	return((m_flag_ssl_ready=true));
+	return((m_is_ssl_ready=true));
 }
 
-bool cbsdConnector::Transmit(const std::string &data){
+bool cbsdConnector::TransmitRaw(const std::string &data){
 	if(m_ssl){
 		int ret=SSL_write(m_ssl, data.c_str(), data.size()); 
-		if(ret != data.size()){ LOG(cbsdLog::WARNING) << "Incomplete write!"; }else return(true);
+		if(ret != data.size()){ LOG(cbsdLog::WARNING) << "Incomplete write!"; _ConnectFailed(); }else return(true);
 		
 	}
-	
 	return(false);
 
 }
+
+void cbsdConnector::threadHandler(void){
+	if(m_is_thread_running) return;			// should never happen.. but ok..
+	LOG(cbsdLog::DEBUG) << "Starting connector thread handler";
+
+	m_is_thread_running=true;
+	while(!m_is_thread_stopping){
+		LOG(cbsdLog::DEBUG) << "Connection thread waiting for events";
+
+		int nev = kevent(m_kq, NULL, 0, m_evList, 32, NULL);		// Fetch k-queue events..
+		for (int i = 0; i < nev; i++) {
+			int fd = (int)m_evList[i].ident;
+			if (m_evList[i].flags & EV_EOF){
+				if(fd == m_sock){
+					EV_SET(&m_evSet, m_sock, 0, EV_DELETE, 0, 0, NULL); kevent(m_kq, &m_evSet, 1, NULL, 0, NULL);
+					_ConnectFailed();
+					LOG(cbsdLog::WARNING) << "Server has disconnected/died!";
+				} // else we are shutting down!
+				LOG(cbsdLog::WARNING) << "Server has shutting down!";
+				break;
+			}else if(m_evList[i].flags & EV_ERROR){
+				LOG(cbsdLog::WARNING) << "Connection has kevent error!";
+			}else if (m_evList[i].filter == EVFILT_READ && fd == m_sock){
+				std::string data=std::string();				// Te dump it in a std::string..
+				char buffer[2048];
+				int bytes_read=SSL_read(m_ssl, buffer, sizeof(buffer));
+                                data.append(buffer, bytes_read);
+                                if(!_handleData(data)){
+					LOG(cbsdLog::WARNING) << "Connection was dropped due to invalid data!";
+					EV_SET(&m_evSet, m_sock, 0, EV_DELETE, 0, 0, NULL); kevent(m_kq, &m_evSet, 1, NULL, 0, NULL);
+					_ConnectFailed();
+				}
+			}else{
+				LOG(cbsdLog::WARNING) << "Connection has unknown kevent error!";
+			}
+		}
+	}
+	m_is_thread_running=false;
+	m_is_thread_stopping=false;
+
+	LOG(cbsdLog::DEBUG) << "Stopped connector thread handler";
+}
+
+
