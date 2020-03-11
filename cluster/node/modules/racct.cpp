@@ -1,4 +1,4 @@
-/* racct.cpp - RACCT class for CBSD Cluster Node
+/* racct.cpp - RACCT class for CBSD Cluster Node 
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -27,7 +27,7 @@
  * -------------------------------------------------------------------------------
  * 
  *  Collects RACCT statistics from jails, bhyves and the node.
- *
+ *  Transmits them to the Controller via 'binary' protocol. [wel not yet but it will]
  */
 
 #include <iostream>		// std::cout 

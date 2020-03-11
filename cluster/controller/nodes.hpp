@@ -5,6 +5,7 @@
 #include "node.hpp"
 #include "../common/listener.hpp"
 #include "redis.hpp"
+#include "../common/sqlite.hpp"
 
 
 class cbsdModule;
@@ -23,6 +24,8 @@ class cbsdNodes {
 
  protected:
   cbsdModule				*getModule(uint16_t id){ return(m_modules[id]); }
+  void					PublishRaw(const std::string &data);
+
 
  private:
   cbsdRedis				*m_redis;					// Redis connector placeholder

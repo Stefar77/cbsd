@@ -3,6 +3,8 @@
 
 #include "nodes.hpp"
 #include "../common/moduleids.hpp"
+#include "../config.hpp"
+
 
 #define APPEND_STR(A, B) A ## B
 #define APPEND(A, B) APPEND_STR(A, B)

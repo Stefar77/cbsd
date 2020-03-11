@@ -1,4 +1,4 @@
-/* main.cpp - Main function for CBSD Cluster Daemon
+/* sqlite.cpp - SQLite class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -25,51 +25,41 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>		// sleep
-#include <iostream>		// std::cout 
-#include "module.hpp"
-#include <csignal>
-#include "../common/version.hpp"
-#include "../config.hpp"
+#include "sqlite.hpp"
 
-cbsdNodes	*Nodes;
-bool		keepRunning;
+cbsdSQLite::cbsdSQLite() {
+	LOG(cbsdLog::DEBUG) << "SQLite connection loaded";
+}
 
-void signalHandler(int sig) {
-	switch(sig){
-		case SIGTERM: keepRunning=false; LOG(cbsdLog::WARNING) << "Terminate signal received, quitting!"; break;
-		case SIGHUP: LOG(cbsdLog::INFO) << "Signal HUP received"; break;
-		default: LOG(cbsdLog::INFO) << "Signal " << sig << " received!"; break;
-	}
+cbsdSQLite::~cbsdSQLite() {
+	Close();						// In case we still have stuff opened..
+	LOG(cbsdLog::DEBUG) << "SQLite connection unloaded";
 }
 
 
-int main(int argc, char **argv){
-	int	rc=0;
-	keepRunning=true;
-	signal(SIGHUP, signalHandler);  
-	signal(SIGTERM, signalHandler);  
-
-	LOGGER_INIT(cbsdLog::LoggingLevel, std::cout);
-
-	LOG(cbsdLog::INFO) << "CBSD Controller daemon version " << VERSION;
-
-	// *** seeing if I like the feel of this..
-	// CBSD=cbsdCBSD::getInstance();
-	// CBSD->Nodes()->doSomething();
-	// CBSD->findNode("test");
-	// CBSD->findJail("test");
-
-	Nodes=new cbsdNodes();
-	while(keepRunning){
-		/*   
- 		 *   I love this thread! 
-		 *    - It just sleeps all the time...
-		 */
-		sleep(60);
+void cbsdSQLite::Close(){
+	if(m_db){
+		sqlite3_close(m_db);				// Clean-up any used resources
+		m_db=NULL;
+		LOG(cbsdLog::DEBUG) << "SQLite disconnected from dbfile";
 	}
 
-	LOG(cbsdLog::INFO) << "Shutting down controller!";
-	delete Nodes;
-	exit(rc);
+}
+
+bool cbsdSQLite::Open(const std::string &filename){
+	int	res;	// flags: SQLITE_OPEN_CREATE
+
+        if (SQLITE_OK != (res = sqlite3_open_v2(filename.c_str(), &m_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_SHAREDCACHE, NULL))) {
+		m_db=NULL; return(false); // This clearly didn't work..
+	}
+
+	_doQuery("PRAGMA mmap_size = 209715200;");
+
+	LOG(cbsdLog::DEBUG) << "SQLite connected to dbfile: " << filename;
+	return(true);
+}
+
+/* Private functions */
+bool cbsdSQLite::_doQuery(const std::string &query){
+	return(false);
 }

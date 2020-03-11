@@ -221,7 +221,7 @@ void cbsdConnector::threadHandler(void){
 					_ConnectFailed();
 					LOG(cbsdLog::WARNING) << "Server has disconnected/died!";
 				} // else we are shutting down!
-				LOG(cbsdLog::WARNING) << "Server has shutting down!";
+//				LOG(cbsdLog::WARNING) << "Server is shutting down!";
 				break;
 			}else if(m_evList[i].flags & EV_ERROR){
 				LOG(cbsdLog::WARNING) << "Connection has kevent error!";

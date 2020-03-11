@@ -1,7 +1,8 @@
-#ifndef MASTER_HPP
-#define MASTER_HPP
+#ifndef REDIS_HPP
+#define REDIS_HPP
 
 #include <vector>
+#include <map>
 #include "../common/connector.hpp"
 
 extern cbsdLog *Log;
@@ -17,6 +18,14 @@ class cbsdRedis: public cbsdConnector {
 	/* HASH functions */
 	std::string		hGet(const std::string &hash, const std::string &key);
 	uint32_t		hSet(const std::string &hash, const std::string &key, const std::string &val);
+	uint32_t		hSet(const std::string &hash, std::map<std::string, std::string> vals);
+	uint32_t		hDel(const std::string &hash, const std::string &key);
+	uint32_t		hDel(const std::string &hash, const std::vector<std::string> &keys);
+	uint32_t		hLen(const std::string &hash);
+	uint32_t		hExists(const std::string &hash);
+
+
+
 
 
 

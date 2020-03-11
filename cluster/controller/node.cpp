@@ -89,6 +89,8 @@ void cbsdNode::_handlePacket(char *packet, size_t len) {
 void cbsdNode::_hasConnected(){
 	LOG(cbsdLog::INFO)  << "Node " << m_name << " has connected";
 
+	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"up\"}"); // TODO: Change this!
+
 	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
 
 	transmitRaw("testing");
@@ -97,7 +99,9 @@ void cbsdNode::_hasConnected(){
 void cbsdNode::_hasDisconnected(){
 	LOG(cbsdLog::INFO) << "Node " << m_name << " has disconnected";
 
-//	m_modules.clear();				//      We renegotiate this when it reconnects!
+	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"disconnected\"}"); // TODO: Change this!
+
+	m_modules.clear();				//      We renegotiate this when it reconnects!
 
 	m_is_connected=false;				//	state&=~NODE_IS_CONNECTED;
 	m_is_authenticated=false;			//	state&=~NODE_IS_AUTHENTICATED;

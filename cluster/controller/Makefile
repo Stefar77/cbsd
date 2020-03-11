@@ -3,7 +3,7 @@ MOP=../../obj/controller/
 COP=../../obj/common/
 BIN=../../bin/
 INCLUDES=-I/usr/local/include/
-LIBS=-L/usr/local/lib -lthr -lcrypto -lutil -llz4 -lssl 
+LIBS=-L/usr/local/lib -lthr -lcrypto -lutil -llz4 -lssl -lsqlite3
 DEBUG=-g -O0
 
 ${MOP}%.o: %.cpp
@@ -13,8 +13,8 @@ ${COP}%.o: %.cpp
 	true
 
 
-${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o ${MOP}redis.o
-	$(CC) ${DEBUG} ${LIBS} -o ${BIN}cbsddaemon ${MOP}*.o ${COP}socket.o ${COP}listener.o ${COP}log.o ${MOP}modules/*.o ${COP}connector.o
+${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o ${MOP}redis.o ${COP}sqlite.o
+	$(CC) ${DEBUG} ${LIBS} -o ${BIN}cbsddaemon ${MOP}*.o ${COP}socket.o ${COP}listener.o ${COP}log.o ${MOP}modules/*.o ${COP}connector.o ${COP}sqlite.o
 
 clean:
 	@( cd ../ && gmake clean ) >/dev/null

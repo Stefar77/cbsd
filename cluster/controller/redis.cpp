@@ -25,6 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// TODO: Make a proper FIFO and have and option to ignore the results (i.e. with publish)
+
 #include "redis.hpp"
 
 cbsdRedis::cbsdRedis(const std::string &host, uint16_t port, const std::string &password, uint32_t database): cbsdConnector("Redis") {
@@ -97,8 +99,6 @@ uint32_t cbsdRedis::_intResult(const std::string &data){
 uint32_t cbsdRedis::Publish(const std::string &queue, const std::string &event){
 	std::vector<std::string> oplist = {"PUBLISH", queue, event};
 	std::string data=_doRequest(oplist);
-
-	LOG(cbsdLog::DEBUG) << "Redis result: [" << data << "]";
 	return(_intResult(data));
 }
 
@@ -119,6 +119,62 @@ uint32_t cbsdRedis::hSet(const std::string &hash, const std::string &key, const 
 	std::vector<std::string> oplist = {"HSET", hash, key, val};
 	return(_intResult(_doRequest(oplist)));
 }
+
+uint32_t cbsdRedis::hSet(const std::string &hash, std::map<std::string, std::string>vals){
+	std::vector<std::string> oplist = {"HSET", hash};
+	for (std::map<std::string, std::string>::iterator it = vals.begin(); it != vals.end(); it++){
+#ifdef SUPPORT_EVEN_OLDER_CRAP
+		if(m_redis_version < 200){
+			hSet(hash, it->first, it->second);
+		}else{
+#endif
+			oplist.emplace_back(it->first); 		// Key
+			oplist.emplace_back(it->second);		// Value
+#ifdef SUPPORT_EVEN_OLDER_CRAP
+		}
+#endif
+	}
+#ifdef SUPPORT_OLD_CRAP
+	if(m_redis_version < 400){
+		oplist[0]="HMSET";
+		std::string data=_doRequest(oplist);
+		if(data.substr(0,2) != "OK") return(255);		// TODO: Invalid response. throw exception here?!
+		return(0);
+	}else{
+#endif
+		return(_intResult(_doRequest(oplist)));
+#ifdef SUPPORT_OLD_CRAP
+	}
+#endif
+}
+
+uint32_t cbsdRedis::hDel(const std::string &hash, const std::string &key){
+	std::vector<std::string> oplist = {"HDEL", hash, key};
+	return(_intResult(_doRequest(oplist)));
+}
+
+uint32_t cbsdRedis::hLen(const std::string &hash){
+	std::vector<std::string> oplist = {"HLEN", hash};
+	return(_intResult(_doRequest(oplist)));
+}
+
+uint32_t cbsdRedis::hExists(const std::string &hash){
+	std::vector<std::string> oplist = {"HEXISTS", hash};
+	return(_intResult(_doRequest(oplist)));
+}
+
+uint32_t cbsdRedis::hDel(const std::string &hash, const std::vector<std::string>&keys){
+//	if(m_redis_version >= 240){
+		std::vector<std::string> oplist = {"HDEL", hash};
+		for(int i=0; i<keys.size(); i++) oplist.emplace_back(keys[i]);
+		return(_intResult(_doRequest(oplist)));
+//	}else{
+//		uint32_t res=0;
+//		for(int i=0; i<keys.size(); i++) res+=hDel(hash, keys[i]);
+//		return(res);
+//	}
+}
+
 
 bool	cbsdRedis::_handleData(const std::string &data){
 

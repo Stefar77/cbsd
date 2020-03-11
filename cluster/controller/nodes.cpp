@@ -27,24 +27,23 @@
 
 #include "module.hpp"
 #include "modules/racct.hpp"
-#include "../config.hpp"
 
 
 cbsdNodes::cbsdNodes() {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
 	if(!m_listener) return; 					// Should never happen..
 
+#ifdef RedisIP
+#define REDIS
 	m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);
+#else
+	m_redis = NULL;
+#endif
 
 	// Modules... (for now)
 	m_modules[1]=new cbsdRACCT();					// For testing...
 
-	uint32_t tmpnr=m_redis->hSet("test", "demo", "Super");		// Testing more..
-	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
-
-	std::string tmp=m_redis->hGet("test", "demo");			// Testing more..
-	LOG(cbsdLog::DEBUG) << "Redis returned: test:demo='" << tmp << "'";
-	
+	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"up\"}");	// TODO: Change this!
 
 	if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
 		LOG(cbsdLog::FATAL) << "Nodes failed to load, I should stop now!";
@@ -58,6 +57,8 @@ cbsdNodes::cbsdNodes() {
 }
 
 cbsdNodes::~cbsdNodes() {
+
+	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"terminated\"}");	// TODO: Change this!
 
 	// First we stop the listener so it doesn't try to access non-existing objects while closing...
 	if(NULL != m_listener){
@@ -77,6 +78,8 @@ cbsdNodes::~cbsdNodes() {
 	m_mutex.unlock();
 
 	LOG(cbsdLog::DEBUG) << "Unloading Redis";
+
+
 
 	if(NULL != m_redis){
 		delete m_redis;
@@ -111,4 +114,11 @@ bool cbsdNodes::transmitRaw(const std::string &data){
 	return(true);	
 }
 
+
+void cbsdNodes::PublishRaw(const std::string &data){
+#if defined(REDIS) && defined(RedisEQ_Controller_State)
+	uint32_t tmpnr=m_redis->Publish(RedisEQ, data);
+	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
+#endif
+}
 
