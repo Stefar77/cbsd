@@ -42,11 +42,11 @@ int ssl_callback(char *buf, int size, int rwflag, void *u){
 
 cbsdSocket::cbsdSocket() {
 	m_ssl=NULL;
-	LOG(cbsdLog::DEBUG) << "Socket created";
+//	LOG(cbsdLog::DEBUG) << "Socket created";
 }
 
 cbsdSocket::~cbsdSocket() {
-	LOG(cbsdLog::DEBUG) << "Socket destroyed";
+//	LOG(cbsdLog::DEBUG) << "Socket destroyed";
 }
 
 bool cbsdSocket::isPersistent(){ return(false); };

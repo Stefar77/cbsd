@@ -25,20 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "module.hpp"
+#include "cbsd.hpp"
 #include "modules/racct.hpp"
-
 
 cbsdNodes::cbsdNodes() {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
 	if(!m_listener) return; 					// Should never happen..
-
-#ifdef RedisIP
-#define REDIS
-	m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);
-#else
-	m_redis = NULL;
-#endif
 
 	// Modules... (for now)
 	m_modules[1]=new cbsdRACCT();					// For testing...
@@ -46,14 +38,13 @@ cbsdNodes::cbsdNodes() {
 	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"up\"}");	// TODO: Change this!
 
 	if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
-		LOG(cbsdLog::FATAL) << "Nodes failed to load, I should stop now!";
+		Log(cbsdLog::FATAL, "Nodes failed to load, I should stop now!");
 		return;
 	}
-//	if(!m_listener->_initialize()) return(false);
                                                      
 	m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");		// For testing...
 
-	LOG(cbsdLog::DEBUG) << "Nodes loaded";
+	Log(cbsdLog::DEBUG, "Nodes loaded");
 }
 
 cbsdNodes::~cbsdNodes() {
@@ -67,7 +58,7 @@ cbsdNodes::~cbsdNodes() {
 		m_listener=NULL; 		// Why not..
 	}
 
-	LOG(cbsdLog::DEBUG) << "Unloading nodes";
+	Log(cbsdLog::DEBUG, "Unloading nodes");
 
 	m_mutex.lock();
 	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
@@ -76,15 +67,6 @@ cbsdNodes::~cbsdNodes() {
 	}
 	m_nodes.clear();
 	m_mutex.unlock();
-
-	LOG(cbsdLog::DEBUG) << "Unloading Redis";
-
-
-
-	if(NULL != m_redis){
-		delete m_redis;
-		m_redis=NULL;
-	}
 
 }
 
@@ -101,7 +83,7 @@ cbsdNode *cbsdNodes::Find(const std::string name){
 }
 
 cbsdSocket *cbsdNodes::acceptConnection(int fd, SSL *ssl){
-	LOG(cbsdLog::DEBUG) << "Got new connection!";
+	Log(cbsdLog::DEBUG, "Got new connection!");
 	return(m_nodes[1]);
 }
 
@@ -116,10 +98,16 @@ bool cbsdNodes::transmitRaw(const std::string &data){
 
 
 void cbsdNodes::PublishRaw(const std::string &data){
-#if defined(REDIS) && defined(RedisEQ_Controller_State)
-	//uint32_t tmpnr=
-	m_redis->Publish(RedisEQ, data);
-//	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
-#endif
+//	CBSD.PublishRaw(data);	
+//	m_redis->Publish(RedisEQ, data);
 }
 
+void cbsdNodes::Log(const uint8_t level, const std::string &data){
+	std::map<std::string,std::string> item;
+	item["msg"]=data;
+	CBSD->Log(level, item);
+}
+                                
+void cbsdNodes::Log(const uint8_t level, std::map<std::string,std::string> data){
+	CBSD->Log(level, data);
+}

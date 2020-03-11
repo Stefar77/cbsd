@@ -39,6 +39,8 @@ class cbsdModule {
 	void			Disable(){ m_flag_thread_disabled=true; }
 	void			Enable(){ m_flag_thread_disabled=false; }
 	bool			isEnabled(){ return(!m_flag_thread_disabled); }
+	void			Log(const uint8_t level, const std::string &data);
+        void			Log(const uint8_t level, std::map<std::string,std::string> data);
 
  protected:
 	bool			 doLoad(cbsdNodes *nodes);
@@ -54,6 +56,7 @@ class cbsdModule {
 	virtual bool		moduleLoaded()=0;
 	virtual void		moduleReceive(cbsdNode *node, const uint16_t type, const std::string &data)=0;
 	virtual void		moduleThread();
+
 
 	std::thread		m_threadID;                     // ThreadID for the modules thread..
         void			threadHandler(void);

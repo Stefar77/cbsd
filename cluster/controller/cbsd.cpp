@@ -1,4 +1,4 @@
-/* main.cpp - Main function for CBSD Cluster Daemon
+/* cbsd.cpp - CBSD class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -25,54 +25,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>		// sleep
-#include <iostream>		// std::cout 
 #include "cbsd.hpp"
-#include <csignal>
 
-bool		keepRunning;
-cbsdCBSD	*CBSD;
+cbsdCBSD::cbsdCBSD(){
 
-void signalHandler(int sig) {
-	switch(sig){
-		case SIGTERM: keepRunning=false; LOG(cbsdLog::WARNING) << "Terminate signal received, quitting!"; break;
-		case SIGHUP: LOG(cbsdLog::INFO) << "Signal HUP received"; break;
-		default: LOG(cbsdLog::INFO) << "Signal " << sig << " received!"; break;
-	}
+	IFREDIS(m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);)
+	m_nodes = new cbsdNodes();
+
+}
+
+cbsdCBSD::~cbsdCBSD() {
+
+	Log(cbsdLog::DEBUG, "Unloading...");
+
+	delete m_nodes;
+	IFREDIS(delete m_redis;)
+
 }
 
 
-int main(int argc, char **argv){
-	int	rc=0;
+void cbsdCBSD::Log(const uint8_t level, const std::string &data){
+        std::map<std::string,std::string> item;
+        item["msg"]=data;
+        Log(level, item);
+}
+                                
+void cbsdCBSD::Log(const uint8_t level, std::map<std::string,std::string> data){
+        data["controller"]="Controller";
 
-	LOGGER_INIT(cbsdLog::LoggingLevel, std::cout);
-	LOG(cbsdLog::INFO) << "CBSD Controller daemon version " << VERSION;
+	std::string msg="";
+	for (std::map<std::string,std::string>::iterator it = data.begin(); it != data.end(); it++){
+                msg.append(it->first+"='"+it->second+"' ");
+        }
 
-	keepRunning=true;
-	signal(SIGHUP, signalHandler);  
-	signal(SIGTERM, signalHandler);  
-
-	CBSD = new cbsdCBSD();
-
-
-	// *** seeing if I like the feel of this..
-	// CBSD=cbsdCBSD::getInstance();
-	// CBSD->Nodes()->doSomething();
-	// CBSD->findNode("test");
-	// CBSD->findJail("test");
-
-	while(keepRunning){
-		/*   
- 		 *   I love this thread! 
-		 *    - It just sleeps all the time...
-		 */
-		sleep(60);
-	}
-
-	LOG(cbsdLog::INFO) << "Shutting down controller!";
-	delete CBSD;
-
-	LOG(cbsdLog::DEBUG) << "Done shutting down!";
-
-	exit(rc);
+        LOG(level) << msg;
 }

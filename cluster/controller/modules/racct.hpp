@@ -1,7 +1,7 @@
 #ifndef RACCT_HPP
 #define RACCT_HPP
 
-#include "../module.hpp"
+#include "../cbsd.hpp"
 
 #define MODULE_NAME RACCT
 MODULE_HPP_START()

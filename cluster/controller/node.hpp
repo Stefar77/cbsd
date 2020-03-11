@@ -1,9 +1,7 @@
 #ifndef NODE_HPP
 #define NODE_HPP
-#include <map>
-#include "../common/socket.hpp"
-#include "../shared/jail.hpp"
-#include "module.hpp"
+
+#include "cbsd.hpp"
 
 enum { 
 	NCMD_PING=0, NCMD_PONG
@@ -47,7 +45,8 @@ class cbsdNode: public cbsdSocket {
  	void				_hasDisconnected() override;
 	void				_hasData(const std::string &data) override;
 	void				_readyForData() override;
-
+	void				Log(const uint8_t level, const std::string &data);
+	void				Log(const uint8_t level, std::map<std::string,std::string> data);
 
 	void 				_handlePacket(char *packet, size_t len);
 	int				_handleCommand(uint16_t command, uint8_t parameters, char *packet);

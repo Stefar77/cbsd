@@ -36,11 +36,11 @@
 
 MODULE_START(m_pcpu=0; m_pmem=0;)
 EVENT_LOADED( return(true); )
-EVENT_UNLOAD( LOG(cbsdLog::DEBUG) << "Trying to stop RACCT thread"; )
+EVENT_UNLOAD( Log(cbsdLog::DEBUG, "Trying to stop RACCT thread"); )
 EVENT_THREAD(
 	sleep(10);		// Important!! This will loop until the node is stopped or module unloaded!
 
-	LOG(cbsdLog::DEBUG) << "Doing RACCT task";	
+	Log(cbsdLog::DEBUG, "Doing RACCT controller task...");
 
 //	TransmitBuffered(data);
 )
@@ -51,12 +51,14 @@ EVENT_RECEIVE(
 	 *  cbsdNode 	     *node;
 	 */
 
-	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from node " << node->getName() << " on channel " 
-			     << std::to_string(channel) << "."; 
-
-	Transmit(node, 1, "Tesing!");
+	std::map<std::string, std::string> item;
+	item["node"]=node->getName();
+	item["channel"]=std::to_string(channel);
+	item["msg"]="Received [" + data + "]";
+	Log(cbsdLog::DEBUG, item);
+//	Transmit(node, 1, "Tesing!");
 
 )
-MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
+MODULE_STOP( Log(cbsdLog::DEBUG, "RACCT module unloaded nicely!"); )
 
 

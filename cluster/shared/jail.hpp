@@ -6,7 +6,7 @@
 class cbsdJail {
  friend class cbsdMaster;
 #else
-#include "../controller/module.hpp"
+#include "../controller/cbsd.hpp"
 class cbsdNode;
 class cbsdJail {
  friend class cbsdNode;

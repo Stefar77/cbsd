@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "module.hpp"
+#include "cbsd.hpp"
 
 cbsdNode::cbsdNode(cbsdNodes *nodes, const uint32_t id, const std::string name) {
 	m_nodes=nodes;
@@ -36,11 +36,11 @@ cbsdNode::cbsdNode(cbsdNodes *nodes, const uint32_t id, const std::string name) 
 	m_performance=0;			// We know nothing yet...
 	m_jails.clear();			// We start clean
 
-	LOG(cbsdLog::DEBUG) << "Node " << m_name << " loaded";
+	Log(cbsdLog::DEBUG, "Node loaded");
 }
 
 cbsdNode::~cbsdNode() {
-	LOG(cbsdLog::DEBUG) << "Node " << m_name << " unloaded";
+	Log(cbsdLog::DEBUG, "Node unloaded");
 }
 
 //bool cbsdNode::isPersistent(){ return(true); };
@@ -80,14 +80,14 @@ void cbsdNode::_handlePacket(char *packet, size_t len) {
 			}
 		}else rc=-2;
 	}
-	LOG(cbsdLog::DEBUG) << "Node has sent me a packet";
+	Log(cbsdLog::DEBUG, "Node has sent me a packet");
 }
 
 
 /*********** EVENTS ************/
 
 void cbsdNode::_hasConnected(){
-	LOG(cbsdLog::INFO)  << "Node " << m_name << " has connected";
+	Log(cbsdLog::INFO, "Node has connected");
 
 	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"up\"}"); // TODO: Change this!
 
@@ -97,7 +97,7 @@ void cbsdNode::_hasConnected(){
 }
 
 void cbsdNode::_hasDisconnected(){
-	LOG(cbsdLog::INFO) << "Node " << m_name << " has disconnected";
+	Log(cbsdLog::INFO, "Node has disconnected");
 
 	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"disconnected\"}"); // TODO: Change this!
 
@@ -114,7 +114,7 @@ void cbsdNode::_hasDisconnected(){
 }
 
 bool cbsdNode::_doSysOp(std::string &data){
-	LOG(cbsdLog::DEBUG) << "Input sys_op: [" << data << "]";
+	Log(cbsdLog::DEBUG, "Input sys_op: [" + data + "]");
 	return(false);
 }
 
@@ -125,7 +125,7 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 
 	if(!m_has_negotiated){
 		if(*cmd != 0 || channel != 0){
-			LOG(cbsdLog::DEBUG) << "Node " << m_name << " invalid negotiation";
+			Log(cbsdLog::DEBUG, "Invalid negotiation");
 			return(false);	// TODO!!
 		}
 	}
@@ -134,11 +134,11 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 	switch(*cmd){
 		case 0:
 			if(*params != 1){	// Currently we only have 1 parameter and that is an array of uint16's (mod_id's)
-				LOG(cbsdLog::WARNING) << "Node " << m_name << " is signing on with invalid parameters";
+				Log(cbsdLog::WARNING, "Node is signing on with invalid parameters");
 				break;
 			}
 			if(data.size()-6 < *tmp){
-				LOG(cbsdLog::WARNING) << "Node " << m_name << " is sending incomplete packages";
+				Log(cbsdLog::WARNING, "Node is sending incomplete packages");
 				return(false);
 			} else {	// Just acts as a container; Because I want to use a local var in this switch statement...
 
@@ -147,11 +147,11 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 					tmp=(uint16_t *)((uint8_t *)data.data()+4+(i*2));
 					cbsdModule *module=m_nodes->getModule(*tmp);
 					if(NULL == module){
-						LOG(cbsdLog::DEBUG) << "Node has module " << std::to_string(*tmp) << " and we don't";
+						Log(cbsdLog::DEBUG, "Node has module " + std::to_string(*tmp) + " and we don't");
 						continue;	// Not found/unknown, we skip it/do not enable it.
 					}
 					m_modules[*tmp]=module;		// Add module to the node's enabled modules list
-					LOG(cbsdLog::DEBUG) << "Node has module " << std::to_string(*tmp);
+					Log(cbsdLog::DEBUG,  "Node has module " + std::to_string(*tmp));
 				}
 				data=data.substr(6+(items*2));
 			}
@@ -160,7 +160,7 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 			break;
 
 		default:
-			LOG(cbsdLog::WARNING) << "Node " << m_name << " said something unknown/invalid!";
+			Log(cbsdLog::WARNING, "Node said something unknown/invalid!");
 			break;
 
 	}
@@ -190,15 +190,15 @@ void cbsdNode::_hasData(const std::string &in_data){
 
 			if(*len > data.size()){
 				if(mod){
-					LOG(cbsdLog::DEBUG) << "Module " << mod->getName() << " on node " << m_name << " is sending invalid packages!";
+					Log(cbsdLog::DEBUG, "Module " + mod->getName() + " is sending invalid packages!");
 				}else{
-					LOG(cbsdLog::DEBUG) << "Node " << m_name << " is sending invalid packages!";
+					Log(cbsdLog::DEBUG, "Node is sending invalid packages!");
 				}
 				return;
 			}
 
 			if(!mod){
-				LOG(cbsdLog::DEBUG) << "Node " << m_name << " mod " << std::to_string(channel) <<  " should not be talking to me!";
+				Log(cbsdLog::DEBUG, "Mod " + std::to_string(channel) + " should not be talking to me!");
 				data=data.substr(*len+8);
 			}else{
 				mod->moduleReceive(this, *tmp, data.substr(8,*len));
@@ -213,5 +213,16 @@ void cbsdNode::_hasData(const std::string &in_data){
 }
 
 void cbsdNode::_readyForData(){
-	LOG(cbsdLog::DEBUG) << "Node " << m_name << " is ready";
+	Log(cbsdLog::DEBUG, "Node is ready");
+}
+
+void cbsdNode::Log(const uint8_t level, const std::string &data){
+	std::map<std::string,std::string> item;
+	item["msg"]=data;
+	Log(level, item);
+}
+
+void cbsdNode::Log(const uint8_t level, std::map<std::string,std::string> data){
+	data["node"]=m_name;
+	m_nodes->Log(level, data);
 }
