@@ -5,6 +5,7 @@
 #include "node.hpp"
 #include "../common/listener.hpp"
 #include "redis.hpp"
+#include "user.hpp"
 #include "../common/sqlite.hpp"
 
 

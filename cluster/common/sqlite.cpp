@@ -75,16 +75,29 @@ bool cbsdSQLite::_doQuery(const std::string &query){
 }
 
 std::string	cbsdSQLite::getValue(const std::string &query){
-
-//	LOG(cbsdLog::DEBUG) << "SQLite getValue('" << query << "');";
-
 	std::string data;
 	sqlite3_stmt	*stmt;
 
 	int ret = sqlite3_prepare_v2(m_db, query.c_str(), -1, &stmt, NULL);
         if (ret==SQLITE_OK && (ret=sqlite3_step(stmt)) == SQLITE_ROW){
-//		int cols=sqlite3_column_count(stmt);
-		data.append((char *)sqlite3_column_text(stmt, 0));
+		int cols=sqlite3_column_count(stmt);
+		if(cols != 0) data.append((char *)sqlite3_column_text(stmt, 0));
+		sqlite3_finalize(stmt);
+	}else{
+		sqlite3_finalize(stmt);
+		throw ret;
+	}
+	return(data);
+}
+
+std::vector<std::string> cbsdSQLite::getValues(const std::string &query){
+	std::vector<std::string> data;
+	sqlite3_stmt	*stmt;
+
+	int ret = sqlite3_prepare_v2(m_db, query.c_str(), -1, &stmt, NULL);
+        if (ret==SQLITE_OK && (ret=sqlite3_step(stmt)) == SQLITE_ROW){
+		int cols=sqlite3_column_count(stmt);
+		for(int col=0; col<cols; col++) data.emplace_back(std::string((char *)sqlite3_column_text(stmt, col)));
 		sqlite3_finalize(stmt);
 	}else{
 		sqlite3_finalize(stmt);

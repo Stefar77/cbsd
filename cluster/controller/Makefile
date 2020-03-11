@@ -13,7 +13,7 @@ ${COP}%.o: %.cpp
 	true
 
 
-${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o ${MOP}redis.o ${COP}sqlite.o
+${BIN}cbsddaemon: ${MOP}node.o ${MOP}nodes.o ${MOP}main.o ${COP}socket.o ${COP}listener.o ${MOP}jail.o ${MOP}modules/*.o ${MOP}module.o ${MOP}redis.o ${COP}sqlite.o ${MOP}user.o
 	$(CC) ${DEBUG} ${LIBS} -o ${BIN}cbsddaemon ${MOP}*.o ${COP}socket.o ${COP}listener.o ${COP}log.o ${MOP}modules/*.o ${COP}connector.o ${COP}sqlite.o
 
 clean:

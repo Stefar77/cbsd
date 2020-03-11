@@ -140,14 +140,8 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 			if(data.size()-6 < *tmp){
 				LOG(cbsdLog::WARNING) << "Node " << m_name << " is sending incomplete packages";
 				return(false);
-			}
-			// Did we already do this?
-			if(m_has_negotiated){
-				LOG(cbsdLog::WARNING) << "Node " << m_name << " is trying to renegotiate";
-				return(false);
-			}
+			} else {	// Just acts as a container; Because I want to use a local var in this switch statement...
 
-			{	// Container because I want to use a local var...
 				uint16_t items=*tmp/2;
 				for(uint16_t i=1; i<=items; i++){
 					tmp=(uint16_t *)((uint8_t *)data.data()+4+(i*2));
