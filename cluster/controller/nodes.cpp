@@ -117,8 +117,9 @@ bool cbsdNodes::transmitRaw(const std::string &data){
 
 void cbsdNodes::PublishRaw(const std::string &data){
 #if defined(REDIS) && defined(RedisEQ_Controller_State)
-	uint32_t tmpnr=m_redis->Publish(RedisEQ, data);
-	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
+	//uint32_t tmpnr=
+	m_redis->Publish(RedisEQ, data);
+//	LOG(cbsdLog::DEBUG) << "Redis returned: '" << std::to_string(tmpnr) << "'";
 #endif
 }
 

@@ -132,7 +132,9 @@ uint32_t cbsdRedis::hSet(const std::string &hash, std::map<std::string, std::str
 			oplist.emplace_back(it->second);		// Value
 #ifdef SUPPORT_EVEN_OLDER_CRAP
 		}
-#endif
+	}
+	return(0);
+#else
 	}
 #ifdef SUPPORT_OLD_CRAP
 	if(m_redis_version < 400){
@@ -145,6 +147,7 @@ uint32_t cbsdRedis::hSet(const std::string &hash, std::map<std::string, std::str
 		return(_intResult(_doRequest(oplist)));
 #ifdef SUPPORT_OLD_CRAP
 	}
+#endif
 #endif
 }
 

@@ -16,7 +16,7 @@ class cbsdSQLite {
 
 	bool			 Open(const std::string &filename);
 	void			 Close();
-
+	std::string		 getValue(const std::string &query);
 
  private:
 	bool 			 _doQuery(const std::string &query);

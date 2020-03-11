@@ -30,12 +30,10 @@
 #include "log.hpp"
 
 std::mutex  	    cbsdLog::mutex;
-#define LOG_LOCK    cbsdLog::mutex.lock();
-#define LOG_UNLOCK  cbsdLog::mutex.unlock();
 
 cbsdLog::~cbsdLog() { }
 cbsdLog &cbsdLog::instance(uint8_t globalLogLevel, std::ostream& output){static cbsdLog instance(globalLogLevel, output); return(instance); }
-Delegate cbsdLog::log(uint8_t level){ timeStamp(); logLevelStamp(level); return Delegate(m_log_stream, endlineStrategy(level)); }
+Delegate cbsdLog::log(uint8_t level){ /* cbsdLog::mutex.lock(); */ timeStamp(); logLevelStamp(level); return Delegate(m_log_stream, endlineStrategy(level)); }
 uint8_t cbsdLog::getGlobalLogLevel(){ return this->m_level; }
 void cbsdLog::logLevelStamp(uint8_t level) { m_log_stream << logLevelString(level) + ": "; }
 void cbsdLog::timeStamp(){ 
@@ -75,7 +73,7 @@ std::function<void(std::ostream&)> cbsdLog::endlineStrategy(uint8_t level) {
 }
 
 cbsdLog::cbsdLog(uint8_t globalLogLevel, std::ostream& output) : m_level(globalLogLevel), m_log_stream(output) { }
-Delegate::Delegate(std::ostream & os, std::function<void(std::ostream&)> endline) : ostream(os), endline(endline) { LOG_LOCK }
-Delegate::~Delegate() { endline(ostream); LOG_UNLOCK }
+Delegate::Delegate(std::ostream & os, std::function<void(std::ostream&)> endline) : ostream(os), endline(endline) { }
+Delegate::~Delegate() { endline(ostream); /* cbsdLog::mutex.unlock(); */ }
 
 

@@ -32,6 +32,7 @@
 #include "master.hpp"
 #include "modules/racct.hpp"
 #include "../config.hpp"
+#include "../common/sqlite.hpp"
 
 cbsdMaster	*master;
 bool		keepRunning;
@@ -64,6 +65,20 @@ int main(int argc, char **argv){
 	LOGGER_INIT(cbsdLog::LoggingLevel, std::cout);
 
 	LOG(cbsdLog::INFO) << "CBSD Node daemon version " << VERSION;
+	LOG(cbsdLog::INFO) << "CBSD Root is at '" << CBSDROOT "'";
+
+	{	// Enclose this so sql get's unloaded after we are done!
+		cbsdSQLite	*sql=new cbsdSQLite();
+		if(!sql->Open(CBSDROOT "/var/db/local.sqlite")){
+			LOG(cbsdLog::WARNING) << "Failed to open local sqlite database!";
+		}else{
+			LOG(cbsdLog::DEBUG) << "SQLite: " << sql->getValue("SELECT jid FROM jails WHERE jname='jail1'");
+
+		}
+	}
+
+
+
 
 	master=new cbsdMaster();
 	master->loadModule(new cbsdRACCT());			// Load modules first, then add contoller so it can negotiate.
