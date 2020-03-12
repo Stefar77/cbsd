@@ -91,10 +91,7 @@ bool cbsdMaster::loadModule(cbsdModule *mod){
 	return(false);
 }
 
-bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
-	if(!setupSSL(ClusterCA, NodeCRT, NodeKEY, NodePassword)){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
-	if(!Connect(hostname, port)){ LOG(cbsdLog::FATAL) << "Master failed to connect!"; return(false); }
-
+bool cbsdMaster::_doNetInit(){
 	std::string mod_list = std::string();
 	struct {
 		uint16_t	chan;
@@ -110,16 +107,37 @@ bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
 
 	// Negotiate modules..
 	for(std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++) mod_list.append((char *)&it->first, 2);
-	TransmitRaw(mod_list);
+	return(TransmitRaw(mod_list));
+}
 
-	return(true);
+bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
+	if(!setupSSL(ClusterCA, NodeCRT, NodeKEY, NodePassword)){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
+	if(Connect(hostname, port) && _doNetInit()) return(true); 
+
+	while(true){
+		LOG(cbsdLog::FATAL) << "Master failed to connect!"; 
+		sleep(5);
+		if(Connect() && _doNetInit()) return(true);
+	}
+	return(false);
 }
 
 //bool cbsdMaster::Transmit(const std::string &data){
-//	return(m_server->Transmit(data));
+//	m_server->Transmit(data));
 //}
 
 bool cbsdMaster::_handleData(const std::string &data){
 	LOG(cbsdLog::DEBUG) << "Got data from server [" << data << "]";
 	return(true);
 }
+
+void cbsdMaster::_Disconnected(){
+	LOG(cbsdLog::DEBUG) << "Got disconnected from server";
+}
+
+bool cbsdMaster::_Reconnect(){
+	LOG(cbsdLog::DEBUG) << "Trying to reconnect to server";
+	if(!Connect()) return(false);
+	return(_doNetInit());
+}
+

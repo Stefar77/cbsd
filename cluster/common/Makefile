@@ -8,7 +8,7 @@ DEBUG=-g
 ${MOP}%.o: %.cpp
 	$(CC) ${DEBUG} -O3 -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
 
-${MOP}.depend: ${MOP}listener.o ${MOP}socket.o ${MOP}connector.o ${MOP}log.o ${MOP}sqlite.o
+${MOP}.depend: ${MOP}listener.o ${MOP}socket.o ${MOP}log.o ${MOP}sqlite.o
 
 clean:
 	( cd ../ && gmake clean )

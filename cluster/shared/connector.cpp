@@ -26,8 +26,12 @@
  */
 
 #include <iostream>		// std::cout 
+#ifdef ISNODE
+#include <map>
 #include "connector.hpp"
-
+#else
+#include "../controller/cbsd.hpp"
+#endif
 
 extern int ssl_callback(char *buf, int size, int rwflag, void *u);
 
@@ -36,17 +40,18 @@ cbsdConnector::cbsdConnector(const std::string &name){
 	m_name=name;							// My name..
 	m_cert_pass=NULL;						// Make sure this is NULL initilialized
 	m_ssl_ctx=NULL;							// No ssl context yet!
+	m_ssl=NULL;							// 
 	m_sock=-1;
 	m_flags=0;							// We start with all flags at 0!
 	m_kq=kqueue();   						// ...
 	socketpair(AF_UNIX, SOCK_STREAM, 0, m_sync_fd); 		// We use this to wake-up the thread when needed
 
-	LOG(cbsdLog::DEBUG) << "Connector " << m_name << " loaded";
+	Log(cbsdLog::DEBUG, "Loaded");
 }
 
 void cbsdConnector::_doUnload(){
 	if(m_is_thread_running){
-		LOG(cbsdLog::DEBUG) << "Connector " << m_name << " stopping thread";
+		Log(cbsdLog::DEBUG, "stopping thread");
 		m_is_thread_stopping=true;	// Make the thread stop
 		close(m_sync_fd[0]); 		// Should wake up thread
 		threadID.join();		// We join
@@ -63,7 +68,7 @@ cbsdConnector::~cbsdConnector(){
 
 	if(NULL != m_cert_pass) free(m_cert_pass);
 
-	LOG(cbsdLog::DEBUG) << "Connector " << m_name << " unloaded";
+	Log(cbsdLog::DEBUG, "Unloaded");
 }
 
 void cbsdConnector::Disconnect(){
@@ -71,35 +76,48 @@ void cbsdConnector::Disconnect(){
 }
 
 inline bool cbsdConnector::_ConnectFailed(){
-	m_is_connected=false;
 	if(NULL != m_ssl){					// Clean up SSL stuff
 		SSL_shutdown(m_ssl); 				//
 		SSL_free(m_ssl); 				// 
 		m_ssl=NULL; 					// Make sure we do this once.
 	}
 	if(m_sock != -1){ close(m_sock); m_sock=-1; }		// Close the socket also
+
+	if(m_is_connected){
+		m_is_connected=false;
+		_Disconnected();				// User event
+	}
+
 	return(false);						// We always return false..
 }
 
 bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
+	m_hostname=hostname;
+	m_port=port;
+	return(Connect());
+}
 
-	struct sockaddr_in             addr;
+bool cbsdConnector::Connect(){
+	struct sockaddr_in	addr;
 
-	if((addr.sin_addr.s_addr=inet_addr(hostname.c_str()))==-1){ LOG(cbsdLog::CRITICAL) << "Cannot parse hostname"; return(false); }
-	if((m_sock=socket(PF_INET, SOCK_STREAM, 0))==-1){ LOG(cbsdLog::CRITICAL) << "Cannot create socket"; return(false); }
-	addr.sin_family = AF_INET; addr.sin_port = htons(port);
+	if((addr.sin_addr.s_addr=inet_addr(m_hostname.c_str()))==-1){ Log(cbsdLog::CRITICAL, "Cannot parse hostname"); return(false); }
+	if((m_sock=socket(PF_INET, SOCK_STREAM, 0))==-1){ Log(cbsdLog::CRITICAL, "Cannot create socket"); return(false); }
+	addr.sin_family = AF_INET; addr.sin_port = htons(m_port);
 
-	if (connect(m_sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){ LOG(cbsdLog::CRITICAL) << "Connection failed"; return(_ConnectFailed()); } 
+	if (connect(m_sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){ Log(cbsdLog::CRITICAL, "Connection failed"); return(_ConnectFailed()); } 
 
 	if(m_is_ssl_ready){
 		int ret;
 
 		m_ssl = SSL_new(m_ssl_ctx);
+		if(!m_ssl){
+			Log(cbsdLog::CRITICAL, "Failed to create SSL");  return(_ConnectFailed());
+		}
 
-		BIO *sbio = BIO_new_socket(m_sock, BIO_NOCLOSE); if(sbio == NULL) { LOG(cbsdLog::CRITICAL) << "Failed to create BIO";  return(_ConnectFailed()); }
+		BIO *sbio = BIO_new_socket(m_sock, BIO_NOCLOSE); if(sbio == NULL) { Log(cbsdLog::CRITICAL, "Failed to create BIO");  return(_ConnectFailed()); }
 		SSL_set_bio(m_ssl,sbio,sbio);
 		if((ret=SSL_connect(m_ssl)) != 1){ 
-			LOG(cbsdLog::CRITICAL) << "Handshake Error " << std::to_string(SSL_get_error(m_ssl,ret)); 
+			Log(cbsdLog::CRITICAL, "Handshake Error " + std::to_string(SSL_get_error(m_ssl,ret))); 
 			/* ERR_print_errors_fp(stderr); */
 			return(_ConnectFailed()); 
 		}
@@ -107,7 +125,7 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 		X509                *cert = SSL_get_peer_certificate(m_ssl);
 		X509_NAME_ENTRY     *certname = NULL;
 
-		if (cert == NULL){ LOG(cbsdLog::CRITICAL) << "Could not get a certificate from controller."; return(_ConnectFailed()); }
+		if (cert == NULL){ Log(cbsdLog::CRITICAL, "Could not get a certificate from controller."); return(_ConnectFailed()); }
 
 		int common_name_loc = -1;
 		common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(cert),NID_commonName, -1);
@@ -116,16 +134,16 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
 			ASN1_STRING *common_name_asn1 = X509_NAME_ENTRY_get_data(certname);
 			if(common_name_asn1 != NULL) {
 				char *common_name_str = (char *) ASN1_STRING_get0_data(common_name_asn1);
-				LOG(cbsdLog::DEBUG) << "Connected to '" + std::string(common_name_str) << "' with SSL";
+				Log(cbsdLog::DEBUG, "Connected to '" + std::string(common_name_str) + "' with SSL");
 			}else{
 				X509_free(cert);
-				LOG(cbsdLog::CRITICAL) << "Could not get a certificate from controller."; 
+				Log(cbsdLog::CRITICAL, "Could not get a certificate from controller."); 
 				return(_ConnectFailed()); 
 			}
 
 		}else{
 			X509_free(cert);
-			LOG(cbsdLog::CRITICAL) << "Could not get certificate name from controller.";
+			Log(cbsdLog::CRITICAL, "Could not get certificate name from controller.");
 			return(_ConnectFailed()); 
 		}
 		X509_free(cert);
@@ -141,6 +159,8 @@ bool cbsdConnector::Connect(const std::string &hostname, const uint16_t port){
         EV_SET(&m_evSet, m_sock, EVFILT_READ, EV_ADD, 0, 0, NULL); 
 	if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed());
 
+	m_was_connected=true;
+
 	return(true);
 }
 
@@ -155,7 +175,7 @@ bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, con
         RAND_seed("CBSD-ROCKS!",10);
 
 	if((m_ssl_ctx=SSL_CTX_new(method))==NULL){ 
-		LOG(cbsdLog::CRITICAL) << "Failed to initalize SSL! "; // ERR_print_errors_fp(stderr); 
+		Log(cbsdLog::CRITICAL, "Failed to initalize SSL!"); // ERR_print_errors_fp(stderr); 
 		return(false); 
 	}
 
@@ -168,23 +188,23 @@ bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, con
 		SSL_CTX_set_default_passwd_cb_userdata(m_ssl_ctx, m_cert_pass);
 	}
 	if (SSL_CTX_use_certificate_chain_file(m_ssl_ctx, ca.c_str()) <= 0){
-		LOG(cbsdLog::CRITICAL) << "Error; Failed to initalize SSL CA-chain!"; // ERR_print_errors_fp(stderr);
+		Log(cbsdLog::CRITICAL, "Error; Failed to initalize SSL CA-chain!"); // ERR_print_errors_fp(stderr);
 		return(false);
 	}
 	if (SSL_CTX_use_certificate_file(m_ssl_ctx, cert.c_str(), SSL_FILETYPE_PEM) <= 0){
-		LOG(cbsdLog::CRITICAL) << "Failed to initalize SSL CRT!"; // ERR_print_errors_fp(stderr);
+		Log(cbsdLog::CRITICAL, "Failed to initalize SSL CRT!"); // ERR_print_errors_fp(stderr);
 		return(false);
 	}
 	if (SSL_CTX_use_PrivateKey_file(m_ssl_ctx, key.c_str(), SSL_FILETYPE_PEM) <= 0 ){ 
-		LOG(cbsdLog::CRITICAL) << "Failed to initalize SSL key";
+		Log(cbsdLog::CRITICAL, "Failed to initalize SSL key");
 		return(false); 
 	}
 	if(SSL_CTX_check_private_key(m_ssl_ctx) != 1){ 
-		LOG(cbsdLog::CRITICAL) << "Certificate does not match key!"; 
+		Log(cbsdLog::CRITICAL, "Certificate does not match key!"); 
 		return(false); 
 	}
 	if(!SSL_CTX_load_verify_locations(m_ssl_ctx, ca.c_str(), NULL)){ 
-		LOG(cbsdLog::CRITICAL) << "Failed to initalize SSL CA";
+		Log(cbsdLog::CRITICAL, "Failed to initalize SSL CA");
 		return(false); 
 	}
 
@@ -192,15 +212,28 @@ bool cbsdConnector::setupSSL(const std::string &ca, const std::string &cert, con
 	return((m_is_ssl_ready=true));
 }
 
+void cbsdConnector::_Disconnected(){ }
+bool cbsdConnector::_Reconnect(){ return(Connect()); }
+
+
 bool cbsdConnector::TransmitRaw(const std::string &data){
 	int ret;
+
+	if(!m_is_connected){
+		if(!m_was_connected || m_is_reconnecting) return(false);
+		m_is_reconnecting=true;
+		bool test=_Reconnect();
+		m_is_reconnecting=false;
+		if(!test) return(false);	// Cannot transmit without connection..
+	}
+
 	if(m_ssl){
 		ret=SSL_write(m_ssl, data.c_str(), data.size()); 	
 	}else{
 		ret=write(m_sock, data.c_str(), data.size()); 
 
 	}
-	if(ret != data.size()){ LOG(cbsdLog::WARNING) << "Incomplete write!"; _ConnectFailed(); }else return(true);
+	if(ret != data.size()){ Log(cbsdLog::WARNING, "Incomplete write!"); _ConnectFailed(); }else return(true);
 
 	return(false);
 
@@ -208,7 +241,7 @@ bool cbsdConnector::TransmitRaw(const std::string &data){
 
 void cbsdConnector::threadHandler(void){
 	if(m_is_thread_running) return;			// should never happen.. but ok..
-	LOG(cbsdLog::DEBUG) << "Starting connector thread handler for " << m_name;
+	Log(cbsdLog::DEBUG, "Starting thread handler");
 
 	m_is_thread_running=true;
 	while(!m_is_thread_stopping){
@@ -248,7 +281,29 @@ void cbsdConnector::threadHandler(void){
 	m_is_thread_running=false;
 	m_is_thread_stopping=false;
 
-	LOG(cbsdLog::DEBUG) << "Stopped connector thread handler for " << m_name;
+	Log(cbsdLog::DEBUG, "Stopped thread handler");
 }
 
+
+void cbsdConnector::Log(const uint8_t level, const std::string &data){
+	std::map<std::string,std::string> item;
+	item["msg"]=data;
+	Log(level, item);
+}
+        
+void cbsdConnector::Log(const uint8_t level, std::map<std::string,std::string> data){
+	data["module"]=m_name;
+#ifdef ISNODE
+	data["node"]="SuperBSD";	// TEMPORARY
+ 
+	std::string msg="";
+	for (std::map<std::string,std::string>::iterator it = data.begin(); it != data.end(); it++){
+		msg.append(it->first+"='"+it->second+"' ");
+        }
+
+        LOG(level) << msg;
+#else
+	CBSD->Log(level, data);
+#endif
+}
 

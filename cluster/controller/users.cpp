@@ -1,4 +1,4 @@
-/* user.cpp - User class for CBSD Cluster Daemon
+/* users.cpp - Users class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -25,27 +25,57 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "user.hpp"
+#include "cbsd.hpp"
 
-cbsdUser::cbsdUser(const uint32_t id, const std::string &name){
-	m_id=id;
-	m_name=name;
+cbsdUsers::cbsdUsers(){
 
-	Log(cbsdLog::DEBUG, "User loaded");
+	Log(cbsdLog::DEBUG, "Users database started");
 }
 
-cbsdUser::~cbsdUser() {
-	Log(cbsdLog::DEBUG, "User unloaded");
+cbsdUsers::~cbsdUsers() {
+	Log(cbsdLog::DEBUG, "Users database unloaded");
 }
 
-void cbsdUser::Log(const uint8_t level, const std::string &data){
+
+cbsdUser        *cbsdUsers::find(const std::string &name){
+	cbsdUser *item=NULL;
+	// Step one check cache
+	m_mutex.lock();
+	for (std::map<uint32_t, cbsdUser*>::iterator it = m_users.begin(); it != m_users.end(); it++){
+		if(it->second->getName() == name){ item=it->second; break; }
+	}
+	m_mutex.unlock();
+	if(item) return(item); // Success, local hit!
+
+	// TODO: Check external
+	// map<std::string, std::string> res=Datastore->fetch("users", "name", name);
+
+	return(NULL);
+}
+
+cbsdUser        *cbsdUsers::find(const uint32_t id){
+	cbsdUser *item=NULL;
+	// Step one check cache
+	m_mutex.lock();
+	std::map<uint32_t, cbsdUser*>::iterator it = m_users.find(id);
+	if(it != m_users.end()) item=it->second;
+	m_mutex.unlock();
+	if(item) return(item); // Success, local hit!
+
+	// TODO: Check external
+	// map<std::string, std::string> res=Datastore->fetch("users", "id", std::to_string(id));
+
+	return(NULL);
+}
+
+void cbsdUsers::Log(const uint8_t level, const std::string &data){
 	std::map<std::string,std::string> item;
 	item["msg"]=data;
 	CBSD->Log(level, item);
 }
-        
-void cbsdUser::Log(const uint8_t level, std::map<std::string,std::string> data){
-	data["user"]=m_name;
+         
+void cbsdUsers::Log(const uint8_t level, std::map<std::string,std::string> data){
 	CBSD->Log(level, data);
 }
+ 
 

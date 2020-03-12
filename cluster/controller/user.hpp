@@ -1,10 +1,10 @@
 #ifndef USER_HPP
 #define USER_HPP
 
-#include "../common/log.hpp"
-#include "../common/socket.hpp"
-extern cbsdLog *Log;
 #include <vector>
+#include "cbsd.hpp"
+
+extern cbsdLog *Log;
 
 class cbsdUser {
  public:
@@ -20,10 +20,14 @@ class cbsdUser {
 
 
  private:
+	void			Log(const uint8_t level, const std::string &data);
+        void			Log(const uint8_t level, std::map<std::string,std::string> data);
+
 	uint32_t		m_id;				// ID number in the database
 	std::string		m_name;				// Loginname of the user
 
 	std::vector<cbsdSocket *> m_connections;		//
+
 
 
 };

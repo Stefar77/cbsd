@@ -2,6 +2,7 @@
 #define CBSD_HPP
 
 #include <map>
+#include <vector>
 #include "../common/socket.hpp"
 #include "../common/version.hpp"
 #include "users.hpp"
@@ -26,6 +27,7 @@ class cbsdCBSD {
 	/* Functions/Methods */
 
 	cbsdNodes			*Nodes(){ return(m_nodes); }
+	cbsdUsers			*Users(){ return(m_users); }
 
 	void				 Log(const uint8_t level, const std::string &data);
 	void				 Log(const uint8_t level, std::map<std::string,std::string> data);
@@ -35,7 +37,7 @@ class cbsdCBSD {
  private:
 	IFREDIS(cbsdRedis	*m_redis;)    		// Global Redis instance
 	cbsdNodes		*m_nodes;		// Nodes handler
-//	cbsdUsers		*m_users;		// Users cache
+	cbsdUsers		*m_users;		// Users cache
 //	cbsdJails		*m_jails;		// Jails handler
 //	cbsdTasks		*m_tasks;		// Tasks handler/cache
 

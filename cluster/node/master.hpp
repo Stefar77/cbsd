@@ -3,7 +3,7 @@
 
 #include <map>
 #include "../common/log.hpp"
-#include "../common/connector.hpp"
+#include "../shared/connector.hpp"
 #include "utils.hpp"
 #include "module.hpp"				// Jey looped dependency.. :-)
 #include "../shared/jail.hpp"			// More loops..
@@ -24,6 +24,11 @@ class cbsdMaster: public cbsdConnector {
 
 
  private:
+	void 					_Disconnected() override;	// Event
+	bool 					_Reconnect() override;		// Event
+	bool 					_doNetInit();
+
+
 	bool					_handleData(const std::string &data) override;
 	std::map<uint16_t, cbsdModule *>	 m_modules;			// Modules
 	std::map<std::string, cbsdJail *>	 m_jails;			// All jails on this host, indexed on global ID number

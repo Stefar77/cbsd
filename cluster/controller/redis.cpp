@@ -27,35 +27,35 @@
 
 // TODO: Make a proper FIFO and have and option to ignore the results (i.e. with publish)
 
-#include "redis.hpp"
+#include "cbsd.hpp"
 
 cbsdRedis::cbsdRedis(const std::string &host, uint16_t port, const std::string &password, uint32_t database): cbsdConnector("Redis") {
-	m_host=host;				// Name of the node
+	m_host=host;							// Name of the node
 	m_port=port;
 	m_password=password;
 	m_database=database;
-	m_flags=0;				// Clear all flags.
+	m_flags=0;							// Clear all flags.
 
-	LOG(cbsdLog::DEBUG) << "Redis connection loaded";
+	Log(cbsdLog::DEBUG, "Connection loaded");
 }
 
 cbsdRedis::~cbsdRedis() {
 	m_response="";
-	m_cv.notify_all();			// Wakie wakie..
-	LOG(cbsdLog::DEBUG) << "Redis connection unloaded";
+	m_cv.notify_all();						// Wakie wakie..
+	Log(cbsdLog::DEBUG, "Connection unloaded");
 }
 
 /* Private functions */
 bool cbsdRedis::_doConnect(){
 	if(!Connect(m_host, m_port)){
-		LOG(cbsdLog::WARNING) << "Redis failed to connect";
+		Log(cbsdLog::WARNING, "Failed to connect");
 		return(false);
 	}
 	if(m_password != ""){
 		std::vector<std::string> auth = {"AUTH", m_password};
 		std::string res=_doRequest(auth);
 		if(res != "+OK\r\n"){
-			LOG(cbsdLog::WARNING) << "Redis failed to authenticate";
+			Log(cbsdLog::WARNING, "Failed to authenticate");
 			Disconnect();					// We failed, disconnect so we don't try queries.
 			return(false);
 		}
@@ -64,7 +64,7 @@ bool cbsdRedis::_doConnect(){
 		std::vector<std::string> dbsel = {"SELECT", std::to_string(m_database)};
 		std::string res=_doRequest(dbsel);
 		if(res != "+OK\r\n"){
-			LOG(cbsdLog::WARNING) << "Redis failed to select database";
+			Log(cbsdLog::WARNING, "Failed to select database");
 			Disconnect();					// We failed, disconnect so we don't try queries.
 			return(false);
 		}
@@ -181,11 +181,12 @@ uint32_t cbsdRedis::hDel(const std::string &hash, const std::vector<std::string>
 
 bool	cbsdRedis::_handleData(const std::string &data){
 
-//	LOG(cbsdLog::DEBUG) << "Redis received: [" << data << "]";
+//	Log(cbsdLog::DEBUG, "Redis received: [" + data + "]");
 
 	m_response=data;
 	m_cv.notify_all();			// Wakie wakie..
 
 	return(true);
 }
+        
 

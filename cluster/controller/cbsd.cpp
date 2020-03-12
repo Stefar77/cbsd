@@ -30,6 +30,7 @@
 cbsdCBSD::cbsdCBSD(){
 
 	IFREDIS(m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);)
+	m_users = new cbsdUsers();
 	m_nodes = new cbsdNodes();
 
 }
@@ -39,6 +40,7 @@ cbsdCBSD::~cbsdCBSD() {
 	Log(cbsdLog::DEBUG, "Unloading...");
 
 	delete m_nodes;
+	delete m_users;
 	IFREDIS(delete m_redis;)
 
 }
