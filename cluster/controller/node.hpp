@@ -30,6 +30,7 @@ class cbsdNode: public cbsdSocket {
 
 	/* Events */
  	void				statsReceived();
+	void				setPerfdata(const uint16_t what, uint64_t val);
 
  protected:
 	bool 				isPersistent() override { return(true); } 
@@ -75,14 +76,13 @@ class cbsdNode: public cbsdSocket {
 
 
 /* do not change unions unless you also change the node parts of this! */
-	union {				
+	union {	
 		uint64_t		m_performance;
 		struct{
 			uint8_t		m_pcpu;
 			uint8_t		m_pmem;
 			uint16_t	m_temperature;
-			uint16_t	m_no_jails;
-			uint16_t	m_vms;
+			uint32_t	m_openfiles;
 
 		};
 	  };

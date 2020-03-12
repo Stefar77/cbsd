@@ -2,12 +2,11 @@
 #define RACCT_HPP
 
 #include "../cbsd.hpp"
+#define MOD_RACCT
+#include "../../common/structs.hpp"
 
 #define MODULE_NAME RACCT
 MODULE_HPP_START()
-
-uint8_t m_pcpu;
-uint8_t m_pmem;
 
 //
 // you could also put your defines here..

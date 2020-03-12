@@ -26,6 +26,7 @@
  */
 
 #include "cbsd.hpp"
+#include "../common/structs.hpp"
 
 cbsdNode::cbsdNode(cbsdNodes *nodes, const uint32_t id, const std::string name) {
 	m_nodes=nodes;
@@ -226,3 +227,23 @@ void cbsdNode::Log(const uint8_t level, std::map<std::string,std::string> data){
 	data["node"]=m_name;
 	m_nodes->Log(level, data);
 }
+
+void cbsdNode::setPerfdata(const uint16_t what, uint64_t val){
+	switch(what){
+		case 0: 
+		{
+			std::map<std::string,std::string> stats;
+			m_performance=val; 	// pcpu, pmem, temperature, openfiles
+			stats["cpu"]=std::to_string(0|m_pcpu);
+			stats["mem"]=std::to_string(0|m_pmem);
+			stats["openfiles"]=std::to_string(m_openfiles);
+			stats["temperature"]=std::to_string(m_temperature);
+
+			Log(cbsdLog::DEBUG, stats); 
+
+			break;
+		}
+		case 1: Log(cbsdLog::WARNING, "Invalid perfdata type!"); break;
+	}
+}
+

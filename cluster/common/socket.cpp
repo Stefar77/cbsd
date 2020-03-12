@@ -75,7 +75,10 @@ void cbsdSocket::socketEvent(const uint8_t ev, void *opt){
 	char    buffer[4096];		// Buffer for receiving stuff..
 
         switch(ev){
-		case SSSL:  LOG(cbsdLog::DEBUG) << "SSL Connection established!"; m_ssl=(SSL *)opt;	return;
+		case SSSL:  //LOG(cbsdLog::DEBUG) << "SSL Connection established!"; 
+			m_ssl=(SSL *)opt;
+			return;
+
 		case OPEN:  
 			{ 
 				int *fd=(int *)opt; 

@@ -37,7 +37,7 @@
 
 // Name is in the HPP file! If you clone this don't forget to change is and register it in the moduleid.hpp file!
 
-MODULE_START(m_pcpu=0; m_pmem=0;)
+MODULE_START(m_perf.performance=0;)
 EVENT_LOADED( _getHosterStats(); return(true); )
 EVENT_UNLOAD( LOG(cbsdLog::DEBUG) << "Trying to stop RACCT thread"; )
 EVENT_THREAD(
@@ -50,8 +50,8 @@ EVENT_THREAD(
 	_getHosterStats();
 
 	// Debug / temporary...
-	int tmp1=0|m_pcpu, tmp2=0|m_pmem;
-	std::string data = "CPU=" + std::to_string(tmp1) + ",MEM=" + std::to_string(tmp2) + ",FILES=" + std::to_string(m_openfiles) + ",TEMP=" + std::to_string(m_temperature);
+	std::string data="";
+	data.append((char *)&m_perf, sizeof(struct RACCT_u));
 
 	/* Transmit to the Controller on channel 1 */
 	TransmitBuffered(1, data);
@@ -62,7 +62,7 @@ EVENT_RECEIVE(
 	 *  const uint16_t channel
 	 */
 
-	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller on channel " << std::to_string(channel) << "."; 
+//	LOG(cbsdLog::DEBUG) << "Received [" << data << "] from controller on channel " << std::to_string(channel) << "."; 
 )
 
 MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
@@ -71,14 +71,10 @@ MODULE_STOP( LOG(cbsdLog::DEBUG) << "RACCT module unloaded nicely!"; )
 // User functions get defined here (and should also be defined in the HPP file).
 
 void	cbsdRACCT::_getHosterStats(void){
-
-
-	m_pcpu=cbsdUtils::getPCPU();	 		// Host CPU
-	m_pmem=cbsdUtils::getPMEM();			// Host Memory
-	m_temperature=cbsdUtils::cpuTemperature();	// Temperature
-	m_openfiles=cbsdUtils::getOpenFiles();		// Open files
-
-
+	m_perf.p_cpu=cbsdUtils::getPCPU();	 		// Host CPU
+	m_perf.p_mem=cbsdUtils::getPMEM();			// Host Memory
+	m_perf.temperature=cbsdUtils::cpuTemperature();		// Temperature
+	m_perf.openfiles=cbsdUtils::getOpenFiles();		// Open files
 
 }
 

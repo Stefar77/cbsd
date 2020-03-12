@@ -262,7 +262,7 @@ void cbsdListener::_handleAccept(int fd){
 			return;
 		}
 
-		LOG(cbsdLog::DEBUG) << "TODO: Store and check '" << name << "' certificate";
+		LOG(cbsdLog::DEBUG) << "TODO: Store and check this '" << name << "' certificate thingy";
 
 		tflags = fcntl(connfd, F_GETFL, 0);
 		if(tflags == 0){ 
@@ -309,7 +309,7 @@ void cbsdListener::_handleDisconnect(int fd){
 
 	if(!c->isPersistent()) delete c;
 
-	LOG(cbsdLog::DEBUG) << "Connection closed!";
+	// LOG(cbsdLog::DEBUG) << "Connection closed!";
 
 }
 
