@@ -13,20 +13,19 @@ class cbsdNodes {
  friend class cbsdNode;
  friend class cbsdCBSD;
  public:
-  cbsdNodes();
+  cbsdNodes(const std::string &CA, const std::string &CRT, const std::string &KEY, const std::string &PW);
   ~cbsdNodes();
-
-  cbsdNode				*Find(const std::string name);
 
   /* Statics */
   static cbsdSocket			*accept_cb(int fd, SSL *ssl, void *m){ cbsdNodes *self=static_cast<cbsdNodes *>(m); return(self->acceptConnection(fd, ssl)); }
   bool					 transmitRaw(const std::string &data);
 
- protected:
+
+
+
+  CBSDDBCLASSI(cbsdNode)		// Switches to protected
   cbsdModule				*getModule(uint16_t id){ return(m_modules[id]); }
   void					 PublishRaw(const std::string &data);
-  void					 Log(const uint8_t level, const std::string &data);
-  void					 Log(const uint8_t level, std::map<std::string,std::string> data);
 
 
 

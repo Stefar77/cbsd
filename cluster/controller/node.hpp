@@ -36,37 +36,38 @@ class cbsdNode: public cbsdSocket {
 	bool 				isPersistent() override { return(true); } 
 
  private:
-	cbsdNodes			*m_nodes;
 	/* Functions/Methods */
 	bool 				_doAuth(std::string &data, const uint16_t channel);		// Helper
 	bool 				_doSysOp(std::string &data);
-
 
  	void				_hasConnected() override;
  	void				_hasDisconnected() override;
 	void				_hasData(const std::string &data) override;
 	void				_readyForData() override;
-	void				Log(const uint8_t level, const std::string &data);
-	void				Log(const uint8_t level, std::map<std::string,std::string> data);
+	void				 Log(const uint8_t level, const std::string &data);
+	void				 Log(const uint8_t level, std::map<std::string,std::string> data);
 
-	void 				_handlePacket(char *packet, size_t len);
-	int				_handleCommand(uint16_t command, uint8_t parameters, char *packet);
+//	void 				_handlePacket(char *packet, size_t len);
+//	int				_handleCommand(uint16_t command, uint8_t parameters, char *packet);
 
 	/* Private variables */
-	std::string			m_name;			// Name of the node
+	std::string			 m_name;		// Name of the node
+	cbsdNodes			*m_nodes;		// Old accessor of the parent (todo: remove)
+	std::map<uint32_t, cbsdTask *>	*m_tasks;		// Tasks running on this node
+	uint32_t			 m_id;			// Global ID of the node (for databases etc)
 
-	uint32_t			m_id;			// Local flags for node
 	union {				
-		uint32_t		m_flags;
+		uint32_t		 m_flags;		// All flags combined
 		struct {
+		 uint32_t		 m_has_error:1;		// Node had some error user did not ack yet
+		 uint32_t		 m_has_warning:1;	// Node had a warning user did not ack yet
+		 uint32_t		 m_has_negotiated:1;	// Node has nogotiated the modules and stuff
 
-		 uint32_t		m_has_error:1;		// Node had some error user did not ack yet
-		 uint32_t		m_has_warning:1;	// Node had a warning user did not ack yet
-		 uint32_t		m_has_negotiated:1;	// Node has nogotiated the modules and stuff
-		 uint32_t		m_reserved_flags:10;	// not used yet
-		 uint32_t		m_is_maintenance:1;	// Node is in maintenance modus, do not alert
-		 uint32_t		m_is_authenticated:1;	// Node is authenticated
-		 uint32_t		m_is_connected:1;
+		 uint32_t		 m_reserved_flags:10;	// not used yet
+
+		 uint32_t		 m_is_maintenance:1;	// Node is in maintenance modus, do not alert
+		 uint32_t		 m_is_authenticated:1;	// Node is authenticated
+		 uint32_t		 m_is_connected:1;
 
 		};
 	};

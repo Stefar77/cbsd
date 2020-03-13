@@ -5,13 +5,14 @@
 #include <vector>
 #include "../common/socket.hpp"
 #include "../common/version.hpp"
+#include "../common/macros.hpp"
 #include "users.hpp"
+#include "tasks.hpp"
 #include "nodes.hpp"
 #include "module.hpp"
-#include "redis.hpp"
+#include "connectors/redis.hpp"
 #include "../config.hpp"
 //#include "jails.hpp"
-//#include "tasks.hpp"
 
 #ifdef WITH_REDIS 
 #define IFREDIS(...) __VA_ARGS__
@@ -39,7 +40,7 @@ class cbsdCBSD {
 	cbsdNodes		*m_nodes;		// Nodes handler
 	cbsdUsers		*m_users;		// Users cache
 //	cbsdJails		*m_jails;		// Jails handler
-//	cbsdTasks		*m_tasks;		// Tasks handler/cache
+	cbsdTasks		*m_tasks;		// Tasks handler/cache
 
 };
 

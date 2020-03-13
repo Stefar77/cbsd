@@ -27,7 +27,7 @@
 
 // TODO: Make a proper FIFO and have and option to ignore the results (i.e. with publish)
 
-#include "cbsd.hpp"
+#include "../cbsd.hpp"
 
 cbsdRedis::cbsdRedis(const std::string &host, uint16_t port, const std::string &password, uint32_t database): cbsdConnector("Redis") {
 	m_host=host;							// Name of the node
@@ -44,6 +44,33 @@ cbsdRedis::~cbsdRedis() {
 	m_cv.notify_all();						// Wakie wakie..
 	Log(cbsdLog::DEBUG, "Connection unloaded");
 }
+
+std::map<std::string, std::string> cbsdRedis::fetchObject(const std::string &container, const std::string &match, const std::string &val){
+	std::map<std::string, std::string> empty;
+
+	if(container == "node"){
+		if(match == "name"){
+//			return(hGetAll("nodes:"+val)));
+		}else if(match == "id"){
+//			return(hGetAll("nodes:"+val)));
+
+		}
+	}
+	
+	return(empty);	
+}
+
+bool	cbsdRedis::storeObject(const std::string &container, std::map<std::string, std::string> data) { 
+//	if(container == "node"){
+//		if data["id"] exists {
+//			hSet("nodes:"+data["id"], data);
+//			sAdd("nodenames", data["name"], data["id"]);
+//		}
+//	}
+	return(false);
+}
+
+
 
 /* Private functions */
 bool cbsdRedis::_doConnect(){

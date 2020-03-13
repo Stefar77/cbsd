@@ -45,7 +45,7 @@ cbsdNode::~cbsdNode() {
 }
 
 //bool cbsdNode::isPersistent(){ return(true); };
-
+/*
 int cbsdNode::_handleCommand(uint16_t command, uint8_t parameters, char *packet) {
 	switch(command){
 		case NCMD_PING:	transmitRaw({0x01,0x00,0x01,0x00}); return(0); 	 // Send PONG back
@@ -83,7 +83,7 @@ void cbsdNode::_handlePacket(char *packet, size_t len) {
 	}
 	Log(cbsdLog::DEBUG, "Node has sent me a packet");
 }
-
+*/
 
 /*********** EVENTS ************/
 

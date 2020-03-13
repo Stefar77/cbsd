@@ -1,4 +1,4 @@
-/* cbsd.cpp - CBSD class for CBSD Cluster Daemon
+/* task.cpp - Task class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -25,42 +25,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cbsd.hpp"
+#include "task.hpp"
 
-cbsdCBSD::cbsdCBSD(){
-
-	IFREDIS(m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);)
-	m_users = new cbsdUsers();
-	m_nodes = new cbsdNodes(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword);
-	m_tasks = new cbsdTasks();
-
+cbsdTask::cbsdTask(const uint32_t id, cbsdUser *owner, const std::string &name){
+	m_id=id;
+	m_name=name;
+//	if((m_owner=owner) != NULL) owner->linkItem(this);	// Lock it so we do not unload the owner..
+	Log(cbsdLog::DEBUG, "Task loaded");
 }
 
-cbsdCBSD::~cbsdCBSD() {
-
-	Log(cbsdLog::DEBUG, "Unloading...");
-
-	delete m_tasks;
-	delete m_nodes;
-	delete m_users;
-	IFREDIS(delete m_redis;)
-
+cbsdTask::~cbsdTask() {
+//	if(NULL != m_owner) owner->unlinkItem(this);		// We are no longer locking this
+	Log(cbsdLog::DEBUG, "Task unloaded");
 }
 
-
-void cbsdCBSD::Log(const uint8_t level, const std::string &data){
-        std::map<std::string,std::string> item;
-        item["msg"]=data;
-        Log(level, item);
+void cbsdTask::Log(const uint8_t level, const std::string &data){
+	std::map<std::string,std::string> item;
+	item["msg"]=data;
+	Log(level, item);
 }
-                                
-void cbsdCBSD::Log(const uint8_t level, std::map<std::string,std::string> data){
-        data["controller"]="Controller";
-
-	std::string msg="";
-	for (std::map<std::string,std::string>::iterator it = data.begin(); it != data.end(); it++){
-                msg.append(it->first+"='"+it->second+"' ");
-        }
-
-        LOG(level) << msg;
+        
+void cbsdTask::Log(const uint8_t level, std::map<std::string,std::string> data){
+	data["task"]=m_name;
+	CBSD->Log(level, data);
 }
+

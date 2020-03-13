@@ -41,11 +41,23 @@ cbsdUser::~cbsdUser() {
 void cbsdUser::Log(const uint8_t level, const std::string &data){
 	std::map<std::string,std::string> item;
 	item["msg"]=data;
-	CBSD->Log(level, item);
+	Log(level, item);
 }
         
 void cbsdUser::Log(const uint8_t level, std::map<std::string,std::string> data){
 	data["user"]=m_name;
 	CBSD->Log(level, data);
+}
+
+bool	cbsdUser::linkItem(cbsdTask *task){ 
+	std::map<uint32_t, cbsdTask *>::iterator it = m_tasks.find(task->getID()); 
+	if(it != m_tasks.end()){ m_tasks[task->getID()]=task; return(true); } 
+	return(false);
+}
+
+bool    cbsdUser::unlinkItem(cbsdTask *task){ 
+	std::map<uint32_t, cbsdTask *>::iterator it = m_tasks.find(task->getID()); 
+	if(it != m_tasks.end()){ m_tasks.erase(it); return(true); } 
+	return(false); 
 }
 

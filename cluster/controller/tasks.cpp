@@ -1,4 +1,4 @@
-/* cbsd.cpp - CBSD class for CBSD Cluster Daemon
+/* tasks.cpp - Tasks class for CBSD Cluster Daemon
  *
  * Copyright (c) 2020, Stefan Rink <stefanrink at yahoo dot com>
  * All rights reserved.
@@ -27,40 +27,14 @@
 
 #include "cbsd.hpp"
 
-cbsdCBSD::cbsdCBSD(){
+cbsdTasks::cbsdTasks(){
 
-	IFREDIS(m_redis = new cbsdRedis(RedisIP, RedisPORT, RedisPassword, RedisDatabase);)
-	m_users = new cbsdUsers();
-	m_nodes = new cbsdNodes(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword);
-	m_tasks = new cbsdTasks();
-
+	Log(cbsdLog::DEBUG, "Tasks database started");
 }
 
-cbsdCBSD::~cbsdCBSD() {
-
-	Log(cbsdLog::DEBUG, "Unloading...");
-
-	delete m_tasks;
-	delete m_nodes;
-	delete m_users;
-	IFREDIS(delete m_redis;)
-
+cbsdTasks::~cbsdTasks() {
+	Log(cbsdLog::DEBUG, "Tasks database unloaded");
 }
 
 
-void cbsdCBSD::Log(const uint8_t level, const std::string &data){
-        std::map<std::string,std::string> item;
-        item["msg"]=data;
-        Log(level, item);
-}
-                                
-void cbsdCBSD::Log(const uint8_t level, std::map<std::string,std::string> data){
-        data["controller"]="Controller";
-
-	std::string msg="";
-	for (std::map<std::string,std::string>::iterator it = data.begin(); it != data.end(); it++){
-                msg.append(it->first+"='"+it->second+"' ");
-        }
-
-        LOG(level) << msg;
-}
+CBSDDBCLASS(cbsdTasks, cbsdTask, m_tasks)

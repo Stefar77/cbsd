@@ -3,11 +3,12 @@
 
 #include <vector>
 #include <map>
-#include "../shared/connector.hpp"
+#include "../../shared/connector.hpp"
+#include "objectstorage.hpp"
 
 extern cbsdLog *Log;
 
-class cbsdRedis: public cbsdConnector {
+class cbsdRedis: public cbsdConnector, cbsdObjectStore {
  public:
 	cbsdRedis(const std::string &host, uint16_t port, const std::string &password, uint32_t database);
 	~cbsdRedis();
@@ -23,6 +24,15 @@ class cbsdRedis: public cbsdConnector {
 	uint32_t		 hDel(const std::string &hash, const std::vector<std::string> &keys);
 	uint32_t		 hLen(const std::string &hash);
 	uint32_t		 hExists(const std::string &hash);
+
+
+	// Objectstore interfaces
+	uint8_t					 getPriority() override { return(1); }
+	bool					 storeObject(const std::string &container, std::map<std::string, std::string> data) override;
+	bool    				 hasContainer(const std::string &container) override { return(hExists(container) > 0); }
+	std::map<std::string, std::string>	 fetchObject(const std::string &container, const std::string &match, const std::string &val) override;
+
+
 
 
  private:

@@ -10,12 +10,10 @@ class cbsdUsers {
 	~cbsdUsers();
 
 	/* Functions/Methods */
-	cbsdUser	*find(const std::string &name);
-	cbsdUser	*find(const uint32_t id);
 
- protected:
-	void		 Log(const uint8_t level, const std::string &data);
-	void		 Log(const uint8_t level, std::map<std::string,std::string> data);
+
+
+	CBSDDBCLASSI(cbsdUser)
 
 
  private:

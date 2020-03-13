@@ -28,7 +28,7 @@
 #include "cbsd.hpp"
 #include "modules/racct.hpp"
 
-cbsdNodes::cbsdNodes() {
+cbsdNodes::cbsdNodes(const std::string &CA, const std::string &CRT, const std::string &KEY, const std::string &PW) {
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
 	if(!m_listener) return; 					// Should never happen..
 
@@ -37,7 +37,7 @@ cbsdNodes::cbsdNodes() {
 
 	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"up\"}");	// TODO: Change this!
 
-	if(!m_listener->setupSSL(ClusterCA, ControllerCRT, ControllerKEY, ControllerPassword)){
+	if(!m_listener->setupSSL(CA, CRT, KEY, PW)){
 		Log(cbsdLog::FATAL, "Nodes failed to load, I should stop now!");
 		return;
 	}
@@ -70,18 +70,6 @@ cbsdNodes::~cbsdNodes() {
 
 }
 
-cbsdNode *cbsdNodes::Find(const std::string name){
-	cbsdNode *item=NULL;
-         
-	m_mutex.lock();
-	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
-		if(it->second->getName() == name){ item=it->second; break; }
-	}
-        m_mutex.unlock();
-
-	return(item);
-}
-
 cbsdSocket *cbsdNodes::acceptConnection(int fd, SSL *ssl){
 	Log(cbsdLog::DEBUG, "Got new connection!");
 	return(m_nodes[1]);
@@ -102,12 +90,5 @@ void cbsdNodes::PublishRaw(const std::string &data){
 //	m_redis->Publish(RedisEQ, data);
 }
 
-void cbsdNodes::Log(const uint8_t level, const std::string &data){
-	std::map<std::string,std::string> item;
-	item["msg"]=data;
-	CBSD->Log(level, item);
-}
-                                
-void cbsdNodes::Log(const uint8_t level, std::map<std::string,std::string> data){
-	CBSD->Log(level, data);
-}
+CBSDDBCLASS(cbsdNodes, cbsdNode, m_nodes)
+
