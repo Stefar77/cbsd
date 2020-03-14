@@ -41,6 +41,8 @@ class cbsdSocket {
 	void		socketEvent(const uint8_t ev, void *opt);
 	void		socketEvent(const uint8_t ev){ socketEvent(ev, NULL); }
 	bool		transmitRaw(const std::string &data);
+	void 		doDisconnect();
+
 
 
  private:

@@ -35,6 +35,9 @@
 
 extern int ssl_callback(char *buf, int size, int rwflag, void *u);
 
+#ifndef IFDEBUG
+#define IFDEBUG(__VA_ARGS__)
+#endif
 
 cbsdConnector::cbsdConnector(const std::string &name){
 	m_name=name;							// My name..
@@ -46,12 +49,12 @@ cbsdConnector::cbsdConnector(const std::string &name){
 	m_kq=kqueue();   						// ...
 	socketpair(AF_UNIX, SOCK_STREAM, 0, m_sync_fd); 		// We use this to wake-up the thread when needed
 
-	Log(cbsdLog::DEBUG, "Loaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connector loaded");)
 }
 
 void cbsdConnector::_doUnload(){
 	if(m_is_thread_running){
-		Log(cbsdLog::DEBUG, "stopping thread");
+		IFDEBUG(Log(cbsdLog::DEBUG, "stopping thread");)
 		m_is_thread_stopping=true;	// Make the thread stop
 		close(m_sync_fd[0]); 		// Should wake up thread
 		threadID.join();		// We join
@@ -61,21 +64,23 @@ void cbsdConnector::_doUnload(){
 cbsdConnector::~cbsdConnector(){
 	if(m_is_thread_running) _doUnload();
 
-	_ConnectFailed();			// Make sure we are disconnected..
+	_ConnectFailed("Unloading");		// Make sure we are disconnected..
 	SSL_CTX_free(m_ssl_ctx);		// Free the context
 	EVP_cleanup();				// Cleanup SSL
 	m_ssl_ctx=NULL;				// ... why not ...
 
 	if(NULL != m_cert_pass) free(m_cert_pass);
 
-	Log(cbsdLog::DEBUG, "Unloaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connector unloaded");)
 }
 
 void cbsdConnector::Disconnect(){
-	_ConnectFailed(); // for now.
+	_ConnectFailed("Disconnected"); // for now.
 }
 
-inline bool cbsdConnector::_ConnectFailed(){
+inline bool cbsdConnector::_ConnectFailed(const std::string &reason){
+	Log(cbsdLog::WARNING, "Disconnected [" + reason + "]");
+
 	if(NULL != m_ssl){					// Clean up SSL stuff
 		SSL_shutdown(m_ssl); 				//
 		SSL_free(m_ssl); 				// 
@@ -104,28 +109,28 @@ bool cbsdConnector::Connect(){
 	if((m_sock=socket(PF_INET, SOCK_STREAM, 0))==-1){ Log(cbsdLog::CRITICAL, "Cannot create socket"); return(false); }
 	addr.sin_family = AF_INET; addr.sin_port = htons(m_port);
 
-	if (connect(m_sock, (struct sockaddr *) &addr, sizeof(addr)) == -1){ Log(cbsdLog::CRITICAL, "Connection failed"); return(_ConnectFailed()); } 
+	if (connect(m_sock, (struct sockaddr *) &addr, sizeof(addr)) == -1) return(_ConnectFailed("connect() failed")); 
 
 	if(m_is_ssl_ready){
 		int ret;
 
 		m_ssl = SSL_new(m_ssl_ctx);
-		if(!m_ssl){
-			Log(cbsdLog::CRITICAL, "Failed to create SSL");  return(_ConnectFailed());
-		}
+		if(!m_ssl) return(_ConnectFailed("Failed to create SSL"));
 
-		BIO *sbio = BIO_new_socket(m_sock, BIO_NOCLOSE); if(sbio == NULL) { Log(cbsdLog::CRITICAL, "Failed to create BIO");  return(_ConnectFailed()); }
+		BIO *sbio = BIO_new_socket(m_sock, BIO_NOCLOSE); 
+		if(sbio == NULL) return(_ConnectFailed("Failed to create BIO")); 
+
 		SSL_set_bio(m_ssl,sbio,sbio);
 		if((ret=SSL_connect(m_ssl)) != 1){ 
-			Log(cbsdLog::CRITICAL, "Handshake Error " + std::to_string(SSL_get_error(m_ssl,ret))); 
+			//Log(cbsdLog::CRITICAL, "Handshake Error " + std::to_string(SSL_get_error(m_ssl,ret))); 
 			/* ERR_print_errors_fp(stderr); */
-			return(_ConnectFailed()); 
+			return(_ConnectFailed("Handshake error")); 
 		}
 
 		X509                *cert = SSL_get_peer_certificate(m_ssl);
 		X509_NAME_ENTRY     *certname = NULL;
 
-		if (cert == NULL){ Log(cbsdLog::CRITICAL, "Could not get a certificate from controller."); return(_ConnectFailed()); }
+		if (cert == NULL) return(_ConnectFailed("Could not get a certificate.")); 
 
 		int common_name_loc = -1;
 		common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(cert),NID_commonName, -1);
@@ -137,14 +142,14 @@ bool cbsdConnector::Connect(){
 				Log(cbsdLog::DEBUG, "Connected to '" + std::string(common_name_str) + "' with SSL");
 			}else{
 				X509_free(cert);
-				Log(cbsdLog::CRITICAL, "Could not get a certificate from controller."); 
-				return(_ConnectFailed()); 
+			//	Log(cbsdLog::CRITICAL, "Could not get a certificate from controller."); 
+				return(_ConnectFailed("Unable to get certificate.")); 
 			}
 
 		}else{
 			X509_free(cert);
-			Log(cbsdLog::CRITICAL, "Could not get certificate name from controller.");
-			return(_ConnectFailed()); 
+//			Log(cbsdLog::CRITICAL, "Could not get certificate name from controller.");
+			return(_ConnectFailed("Unable to get certificate name")); 
 		}
 		X509_free(cert);
 	}
@@ -152,12 +157,12 @@ bool cbsdConnector::Connect(){
 	m_is_connected=true;
 	if(!m_is_thread_running){
 		EV_SET(&m_evSet, m_sync_fd[1], EVFILT_READ, EV_ADD, 0, 0, NULL); 
-		if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed());
+		if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed("kevent failed for sync"));
                 threadID=threadHandlerProc(); // Start the thread...
 	}
 
         EV_SET(&m_evSet, m_sock, EVFILT_READ, EV_ADD, 0, 0, NULL); 
-	if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed());
+	if(-1 == kevent(m_kq, &m_evSet, 1, NULL, 0, NULL)) return(_ConnectFailed("kevent failed"));
 
 	m_was_connected=true;
 
@@ -231,17 +236,16 @@ bool cbsdConnector::TransmitRaw(const std::string &data){
 		ret=SSL_write(m_ssl, data.c_str(), data.size()); 	
 	}else{
 		ret=write(m_sock, data.c_str(), data.size()); 
-
 	}
-	if(ret != data.size()){ Log(cbsdLog::WARNING, "Incomplete write!"); _ConnectFailed(); }else return(true);
+	if(ret == data.size()) return(true);
 
+	_ConnectFailed("Incomplete write!"); 
 	return(false);
-
 }
 
 void cbsdConnector::threadHandler(void){
 	if(m_is_thread_running) return;			// should never happen.. but ok..
-	Log(cbsdLog::DEBUG, "Starting thread handler");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Starting thread handler");)
 
 	m_is_thread_running=true;
 	while(!m_is_thread_stopping){
@@ -251,8 +255,8 @@ void cbsdConnector::threadHandler(void){
 			if (m_evList[i].flags & EV_EOF){
 				if(fd == m_sock){
 					EV_SET(&m_evSet, m_sock, 0, EV_DELETE, 0, 0, NULL); kevent(m_kq, &m_evSet, 1, NULL, 0, NULL);
-					_ConnectFailed();
-					LOG(cbsdLog::WARNING) << "Server has disconnected/died!";
+					_ConnectFailed("Server disconnected");
+//					LOG(cbsdLog::WARNING) << "Server has disconnected/died!";
 				} // else we are shutting down!
 //				LOG(cbsdLog::WARNING) << "Server is shutting down!";
 				break;
@@ -271,7 +275,7 @@ void cbsdConnector::threadHandler(void){
                                 if(!_handleData(data)){
 					LOG(cbsdLog::WARNING) << "Connection was dropped due to invalid data!";
 					EV_SET(&m_evSet, m_sock, 0, EV_DELETE, 0, 0, NULL); kevent(m_kq, &m_evSet, 1, NULL, 0, NULL);
-					_ConnectFailed();
+					_ConnectFailed("Invalid data");
 				}
 			}else{
 				LOG(cbsdLog::WARNING) << "Connection has unknown kevent error!";
@@ -281,7 +285,7 @@ void cbsdConnector::threadHandler(void){
 	m_is_thread_running=false;
 	m_is_thread_stopping=false;
 
-	Log(cbsdLog::DEBUG, "Stopped thread handler");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Stopped thread handler");)
 }
 
 

@@ -28,29 +28,37 @@
 #include "cbsd.hpp"
 #include "modules/racct.hpp"
 
-cbsdNodes::cbsdNodes(const std::string &CA, const std::string &CRT, const std::string &KEY, const std::string &PW) {
+cbsdNodes::cbsdNodes(){
+	m_flags=0;
+	m_do_redis_updates=true;
+
+	m_modules.clear();
+	m_nodes.clear();
+
 	m_listener = new cbsdListener(&cbsdNodes::accept_cb, this, 0, ControllerPORT, "Node-Listener");
 	if(!m_listener) return; 					// Should never happen..
 
 	// Modules... (for now)
-	m_modules[1]=new cbsdRACCT();					// For testing...
+	#define ADDMODULE(num, name) m_modules[num]=new name(); m_modules[num]->Init()
+	ADDMODULE(1, cbsdRACCT);			// For testing...
 
-	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"up\"}");	// TODO: Change this!
+	IFDEBUG(Log(cbsdLog::DEBUG, "Nodes loaded");)
+}
 
-	if(!m_listener->setupSSL(CA, CRT, KEY, PW)){
-		Log(cbsdLog::FATAL, "Nodes failed to load, I should stop now!");
-		return;
+bool    cbsdNodes::Init(const std::string &CA, const std::string &CRT, const std::string &KEY, const std::string &PW){
+	if(m_is_thread_running) return(false);
+
+	if(!m_listener || !m_listener->setupSSL(CA, CRT, KEY, PW)){
+		Log(cbsdLog::FATAL, "Nodes failed to initialize!");
+		return(false);
 	}
-                                                     
-	m_nodes[1]=new cbsdNode(this, 1, "SuperBSD");		// For testing...
-
-	Log(cbsdLog::DEBUG, "Nodes loaded");
+               
+	// Start the thread..
+	m_threadID=std::thread([=] { threadHandler(); });
+	return(true);	
 }
 
 cbsdNodes::~cbsdNodes() {
-
-	PublishRaw("{\"cmd\":\"event\",\"node\":\"Controller\",\"state\":\"terminated\"}");	// TODO: Change this!
-
 	// First we stop the listener so it doesn't try to access non-existing objects while closing...
 	if(NULL != m_listener){
 		delete m_listener;
@@ -58,10 +66,18 @@ cbsdNodes::~cbsdNodes() {
 		m_listener=NULL; 		// Why not..
 	}
 
-	Log(cbsdLog::DEBUG, "Unloading nodes");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Stopping nodes thread");)
+	if(m_is_thread_running){
+		m_is_thread_stopping=true;
+//		while(m_is_thread_running) usleep(100);
+		IFDEBUG(Log(cbsdLog::DEBUG, "Joining the thread");)
+		m_threadID.join();
+	}
+
+	IFDEBUG(Log(cbsdLog::DEBUG, "Unloading nodes");)
 
 	m_mutex.lock();
-	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
+	FOREACH_NODES {
 //		it->second->nodeEvent(cbsdNode::UNLOAD);
 		delete it->second;
 	}
@@ -70,25 +86,81 @@ cbsdNodes::~cbsdNodes() {
 
 }
 
-cbsdSocket *cbsdNodes::acceptConnection(int fd, SSL *ssl){
-	Log(cbsdLog::DEBUG, "Got new connection!");
-	return(m_nodes[1]);
+IFREDIS(cbsdNode *cbsdNodes::_fetchFromRedis(const std::string &name){
+	std::map<std::string,std::string> test=CBSD->Redis()->hGetAll("node:"+name);
+	if(test.size() == 0) return(NULL);
+
+	SMAPIT it = test.find("id");
+	if(it == test.end()) return(NULL);
+
+	uint32_t id=stoi(test["id"]);
+	m_nodes[id]=new cbsdNode(id, name);	// TODO also set rest of items..
+	Log(cbsdLog::DEBUG, "Loaded node from Redis");
+	return(m_nodes[id]);
+})
+
+cbsdSocket *cbsdNodes::acceptConnection(int fd, SSL *ssl, const std::string &name){
+	if(name == "") return(NULL);		// For now..
+
+	cbsdNode *node=find(name); if(node) return(node);
+	IFREDIS(if((node=_fetchFromRedis(name))) return(node);)
+
+	// TODO: SQL
+
+			
+	Log(cbsdLog::WARNING, "Invalid node '"+name+"' tried to connect");
+	SSL_write(ssl, "--quit", 6); // Yikes.
+
+	return(NULL);
+	
 }
 
 bool cbsdNodes::transmitRaw(const std::string &data){
 	m_mutex.lock();
-	for (std::map<uint32_t, cbsdNode*>::iterator it = m_nodes.begin(); it != m_nodes.end(); it++){
+	FOREACH_NODES {
 		if(it->second->isOnline()) it->second->transmitRaw(data);
 	}
         m_mutex.unlock();
 	return(true);	
 }
 
-
-void cbsdNodes::PublishRaw(const std::string &data){
-//	CBSD.PublishRaw(data);	
-//	m_redis->Publish(RedisEQ, data);
-}
-
 CBSDDBCLASS(cbsdNodes, cbsdNode, m_nodes)
+
+void    cbsdNodes::threadHandler(void){
+        IFDEBUG(Log(cbsdLog::DEBUG, "Starting nodes thread");)
+
+        m_is_thread_running=true;
+        while(!m_is_thread_stopping){
+		sleep(2);
+
+		/* Check if nodes are still alive */
+		m_mutex.lock();
+		FOREACH_NODES {
+			if(!it->second->isOnline()) continue;		// Is it offline, skip it!
+			if(it->second->isFresh()) continue;		// Did we receive recently, skip also!
+
+			if(it->second->isStale()){ 
+				IFDEBUG(Log(cbsdLog::DEBUG, "Node is stale! " + it->second->getName());)
+				it->second->doDisconnect(); continue; 
+			}
+
+			IFDEBUG(Log(cbsdLog::DEBUG, "Node check " + it->second->getName());)
+			// Send a NULL packet and check if the socket is still alive
+			if(!it->second->transmitRaw({0x00,0x00,0x00,0x00})){
+				IFDEBUG(Log(cbsdLog::DEBUG, "Node check failed");)
+			}
+		}
+        	m_mutex.unlock();
+
+
+		//if(m_do_redis_updates){
+		//	IFDEBUG(Log(cbsdLog::DEBUG, "Updating stats in redis");)
+		//}
+
+	}
+        m_is_thread_running=false;
+	m_is_thread_stopping=false;
+
+        IFDEBUG(Log(cbsdLog::DEBUG, "Stopped nodes thread");)
+}
 

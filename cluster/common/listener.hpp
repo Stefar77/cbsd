@@ -3,34 +3,38 @@
 #include <map>
 #include "socket.hpp"
 
+#define SOCKET_MAP	std::map<int, cbsdSocket*>
+#define FOREACH_SOCKET  for (SOCKET_MAP::iterator it = m_connections.begin(); it != m_connections.end(); it++)
+#define SOCKET_CB(name)	cbsdSocket *(*m_connect_cb##name)(int, SSL*, const std::string &, void*)
 
 // Threading is needed.
 #define THREADING(cmd) cmd 
 #include <thread>
+#include "macros.hpp"
 
 class cbsdListener {
  public:
-	cbsdListener(cbsdSocket *(*cb)(int, SSL*, void*), void *clss, const uint32_t ip, const uint16_t port, const std::string name);
+	cbsdListener(SOCKET_CB(), void *clss, const uint32_t ip, const uint16_t port, const std::string &name);
 	~cbsdListener();
 
 	/* Functions/Methods */
-	bool				setupSSL(const std::string ca, const std::string crt, const std::string key, const std::string pass);
+	bool				setupSSL(const std::string &ca, const std::string &crt, const std::string &key, const std::string &pass);
 
 	inline std::string		&getName(){ return(m_name); }
 
  protected: 
 
-
  private:
 	/* Private functions/Methods */
 	void				_handleAccept(int fd);
 	void 				_handleDisconnect(int fd);
-	inline void			_connectFailed(int fd, SSL *ssl, const std::string &msg){ std::cout << "Connection error: " << msg << "\n"; close(fd); if(m_flag_ssl_ready){ SSL_shutdown(ssl); SSL_free(ssl);  }}
 	bool 				_initialize(void);
+	inline void			_connectFailed(int fd, SSL *ssl, const std::string &msg);
 
 
 	/* Private variables */
-	cbsdSocket			*(*m_connect_cb_fn)(int, SSL*, void *);		//
+	SOCKET_CB(_fn);
+	//cbsdSocket			*(*m_connect_cb_fn)(int, SSL*, const std::string &, void *);		//
 	void				*m_connect_cb_cl;		// The class..
 	SSL_CTX				*m_ssl_ctx;			// SSL Contex
 	int				m_fd;				// Listen socket
@@ -43,7 +47,7 @@ class cbsdListener {
 	void				listenThreadHandler(void);
 	inline std::thread		listenThreadProc(void){ return std::thread([=] { listenThreadHandler(); }); }
 
-	std::map<int, cbsdSocket *>	m_connections;			// The connections
+	SOCKET_MAP			m_connections;			// The connections
 
 
 
@@ -57,9 +61,10 @@ class cbsdListener {
 	union {
 	 uint16_t			m_flags;			// flags
 	 struct{
-	  uint16_t			m_flag_reserved:14;		// ...
-	  uint16_t			m_flag_ssl_ready:1;		// SSL Initialized
-	  uint16_t			m_flag_thread_running:1;	// Thread is running
+	  uint16_t			m_flag_reserved:13;		// ...
+	  uint16_t			m_is_accepting:1;		// We are not accepting any new connections
+	  uint16_t			m_is_ssl_ready:1;		// SSL Initialized
+	  uint16_t			m_is_thread_running:1;		// Thread is running
 	 };
 	};
 

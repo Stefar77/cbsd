@@ -36,7 +36,7 @@
 
 MODULE_START( )
 EVENT_LOADED( return(true); )
-EVENT_UNLOAD( Log(cbsdLog::DEBUG, "Trying to stop RACCT thread"); )
+EVENT_UNLOAD( IFDEBUG(Log(cbsdLog::DEBUG, "Trying to stop RACCT thread");) )
 EVENT_THREAD(
 	sleep(10);		// Important!! This will loop until the node is stopped or module unloaded!
 
@@ -52,7 +52,12 @@ EVENT_RECEIVE(
 	 */
 
 	switch(channel){
-		case 1: { RACCT_u *perf=(RACCT_u *)data.data(); node->setPerfdata(0, perf->performance); } break;
+		case 1: // Node stats; pcpu, pmem, openfiles and temperature
+			{ 
+				RACCT_u *perf=(RACCT_u *)data.data(); node->setPerfdata(0, perf->performance); 
+			
+			} 
+			break;
 		default:
 		{
 			std::map<std::string, std::string> item;
@@ -66,6 +71,6 @@ EVENT_RECEIVE(
 //	Transmit(node, 1, "Tesing!");
 
 )
-MODULE_STOP( Log(cbsdLog::DEBUG, "RACCT module unloaded nicely!"); )
+MODULE_STOP( IFDEBUG(Log(cbsdLog::DEBUG, "RACCT module unloaded nicely!");) )
 
 

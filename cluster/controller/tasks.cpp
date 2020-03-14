@@ -29,12 +29,18 @@
 
 cbsdTasks::cbsdTasks(){
 
-	Log(cbsdLog::DEBUG, "Tasks database started");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Tasks database started");)
 }
 
 cbsdTasks::~cbsdTasks() {
-	Log(cbsdLog::DEBUG, "Tasks database unloaded");
-}
+        m_mutex.lock();
+	FOREACH_TASKS {
+		delete it->second;
+	}
+	m_tasks.clear();
+	m_mutex.unlock();
 
+	IFDEBUG(Log(cbsdLog::DEBUG, "Tasks database unloaded");)
+}
 
 CBSDDBCLASS(cbsdTasks, cbsdTask, m_tasks)

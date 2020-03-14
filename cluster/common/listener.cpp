@@ -30,7 +30,7 @@
 
 extern int ssl_callback(char *buf, int size, int rwflag, void *u);
 
-cbsdListener::cbsdListener(cbsdSocket *(*cb)(int, SSL*, void*), void *cls, uint32_t ip, const uint16_t port, const std::string name) {
+cbsdListener::cbsdListener(SOCKET_CB(), void *cls, uint32_t ip, const uint16_t port, const std::string &name) {
 	m_ssl_ctx=NULL;			// Clear context
 	m_ip=ip;			// Setup BIND address
 	m_port=port;			// Setup port
@@ -38,23 +38,24 @@ cbsdListener::cbsdListener(cbsdSocket *(*cb)(int, SSL*, void*), void *cls, uint3
 	m_flags=0;			// Reset all flags
 	m_cert_pass=NULL;		// Cert password
 	m_accept_size=10;		// Todo: make customizable
-	m_connect_cb_fn=cb;		// Callback Function
+	m_connect_cb_fn=m_connect_cb;	// Callback Function
 	m_connect_cb_cl=cls;		// Callback Class
 
-	LOG(cbsdLog::DEBUG) << "Listener " << m_name << " loaded";
+	IFDEBUG(LOG(cbsdLog::DEBUG) << "Listener " << m_name << " loaded";)
 }
 
 cbsdListener::~cbsdListener() {
+	m_is_accepting=false;
 	// Delete connections
 	m_mutex.lock();
-	for (std::map<int, cbsdSocket*>::iterator it = m_connections.begin(); it != m_connections.end(); it++){
+	FOREACH_SOCKET {
 		if(dynamic_cast<cbsdSocket*>(it->second)) delete it->second;
 	}
 	m_connections.clear();
 	m_mutex.unlock();
 
-	if(m_flag_thread_running){		// Thread [still] running?
-		m_flag_thread_running=false;	// Stop it
+	if(m_is_thread_running){		// Thread [still] running?
+		m_is_thread_running=false;	// Stop it
 		close(m_sync_fd[0]);		// Wake up thread 1
 		m_listenThread.join();		// Kill the thread..
 	}
@@ -67,11 +68,11 @@ cbsdListener::~cbsdListener() {
 
 	if(NULL != m_cert_pass) free(m_cert_pass);
 
-	LOG(cbsdLog::DEBUG) << "Listener " << m_name << " unloaded";
+	IFDEBUG(LOG(cbsdLog::DEBUG) << "Listener " << m_name << " unloaded";)
 }
 
-bool cbsdListener::setupSSL(const std::string ca, const std::string crt, const std::string key, const std::string pass) {
-	if(m_flag_ssl_ready) return(true);
+bool cbsdListener::setupSSL(const std::string &ca, const std::string &crt, const std::string &key, const std::string &pass) {
+	if(m_is_ssl_ready) return(true);
 	
 	SSL_load_error_strings();		// Initialize SSL errros
         SSL_library_init();			// Initialize Library
@@ -133,9 +134,9 @@ bool cbsdListener::setupSSL(const std::string ca, const std::string crt, const s
 
 	m_listenThread=listenThreadProc();
 
-	LOG(cbsdLog::DEBUG) << "SSL Initialized";
+	IFDEBUG(LOG(cbsdLog::DEBUG) << "SSL Initialized";)
 	
-	if(_initialize()) return((m_flag_ssl_ready=true));
+	if(_initialize()) return((m_is_ssl_ready=true));
 
 	// Clear context?!
 	return(false);
@@ -179,25 +180,22 @@ void cbsdListener::_handleAccept(int fd){
 	int connfd = accept(fd, (struct sockaddr *)&addr, &socklen);
 	if(connfd == -1){ /* connectFails++; localErrors++; */  return; }
 
+	// Are we accepting new connections? [may need to move below SSL so we could say something to the client?!
+	if(!m_is_accepting){
+		_connectFailed(connfd, ssl, "Not accepting connections");
+		return;
+	}
+
 	int ret;
-	if(m_flag_ssl_ready){
+	if(m_is_ssl_ready){
 		ssl = SSL_new(m_ssl_ctx);
 		if(!ssl){
 			LOG(cbsdLog::CRITICAL) << "Failed to create SSL layer"; close(connfd); 
 			return;
 		}
 		SSL_set_fd(ssl, connfd);
-		try {
-			ret=SSL_accept(ssl);
-		} catch (const std::exception&) {
-			LOG(cbsdLog::CRITICAL) << "SSL Exception";
-			SSL_free(ssl);
-			close(connfd);
-			return;
 
-		}
-
-		if(ret <= 0){
+		if((ret=SSL_accept(ssl)) <= 0){
 			LOG(cbsdLog::CRITICAL) << "SSL Handshake Error [" << SSL_get_error(ssl, ret) << "]"; 
 			SSL_free(ssl);
 			close(connfd); 
@@ -206,8 +204,8 @@ void cbsdListener::_handleAccept(int fd){
 
 		if((sbio = BIO_new_socket(connfd, BIO_NOCLOSE)) == NULL){
 			LOG(cbsdLog::CRITICAL) << "BIO_new_socket() failed"; 
-			close(connfd);
 			SSL_free(ssl); 
+			close(connfd);
 			//connectFails++; 
 			return; 
 		}
@@ -223,19 +221,14 @@ void cbsdListener::_handleAccept(int fd){
 			//
 //		}
 	}
+
 	EV_SET(&m_evSet, connfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
 	kevent(m_kq, &m_evSet, 1, NULL, 0, NULL);
 	
-//	if(m_flag_dont_accept){
-//		if(m_flag_ssl_ready){
-//			
-//		}else{
-//
-//		}
-//	}
 
+	cbsdSocket *item=NULL;
 	int tflags=0;
-	if(m_flag_ssl_ready){
+	if(m_is_ssl_ready){
 		X509		*cert = SSL_get_peer_certificate(ssl);
 		X509_NAME_ENTRY	*certname = NULL;
 
@@ -262,62 +255,50 @@ void cbsdListener::_handleAccept(int fd){
 			return;
 		}
 
-		LOG(cbsdLog::DEBUG) << "TODO: Store and check this '" << name << "' certificate thingy";
-
 		tflags = fcntl(connfd, F_GETFL, 0);
 		if(tflags == 0){ 
 			_connectFailed(connfd, ssl, "Error: fcntl error."); 
 			return; 
 		}
+		item=(m_connect_cb_fn)(connfd, ssl, name, m_connect_cb_cl);
+	}else item=(m_connect_cb_fn)(connfd, ssl, "", m_connect_cb_cl);
 
-
-	}
-
-
-	cbsdSocket *item=(m_connect_cb_fn)(connfd, ssl, m_connect_cb_cl);
 	if(item){
 		m_connections[connfd]=item;
 
-		if(m_flag_ssl_ready){
+		if(m_is_ssl_ready){
 			fcntl(connfd, F_SETFL, tflags | O_NONBLOCK);
 			item->socketEvent(cbsdSocket::SSSL, ssl);
 		}		
 
 		item->socketEvent(cbsdSocket::OPEN, &connfd);
-
 		return;
 	}
 
 	_connectFailed(connfd, ssl, "Parent did not accept."); 
-
+	return;
 
 }
 
 void cbsdListener::_handleDisconnect(int fd){
+	cbsdSocket *c=NULL;
 
         m_mutex.lock();
-        if(m_connections.find(fd) == m_connections.end()){ close(fd); m_mutex.unlock(); return; }
-	cbsdSocket *c = m_connections[fd];
-
-	c->socketEvent(cbsdSocket::CLOSE);
-
+        if(m_connections.find(fd) != m_connections.end()) c = m_connections[fd];
+	if(c) c->doDisconnect();
 	EV_SET(&m_evSet, fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
-
-        close(fd);
         m_connections.erase(fd);
         m_mutex.unlock();
+        if(!c) close(fd);
 
-	if(!c->isPersistent()) delete c;
-
-	// LOG(cbsdLog::DEBUG) << "Connection closed!";
-
+	if(c && !c->isPersistent()) delete c;
+//	LOG(cbsdLog::DEBUG) << "Connection closed!";
 }
 
 void cbsdListener::listenThreadHandler(void){
-	m_flag_thread_running=true;
-//	m_flag_dont_accept=false;
-
-	while(m_flag_thread_running){
+	m_is_accepting=true;				// We just start accepting from the get-go, may need to change this.
+	m_is_thread_running=true;
+	while(m_is_thread_running){
 		int nev = kevent(m_kq, NULL, 0, m_evList, 32, NULL);
 		for (int i = 0; i < nev; i++) {
 			int fd = (int)m_evList[i].ident;
@@ -325,15 +306,28 @@ void cbsdListener::listenThreadHandler(void){
 			else if(m_evList[i].flags & EV_ERROR){ LOG(cbsdLog::CRITICAL) << "Error kevent: " << strerror(m_evList[i].data); }
 			else if (fd == m_fd) _handleAccept(fd);
 			else if (m_evList[i].filter == EVFILT_READ || m_evList[i].filter == EVFILT_WRITE){
+
+				cbsdSocket *c=NULL;
 				m_mutex.lock();
-				if(m_connections.find(fd) == m_connections.end()){ close(fd); m_mutex.unlock(); LOG(cbsdLog::CRITICAL) << "Invalid connection"; return; }
+				if(m_connections.find(fd) != m_connections.end()) c=m_connections[fd];
 				m_mutex.unlock();
-				if (m_evList[i].filter == EVFILT_READ) m_connections[fd]->socketEvent(cbsdSocket::READ); 
-				else m_connections[fd]->socketEvent(cbsdSocket::WRITE);
+
+				if(!c){ close(fd); LOG(cbsdLog::CRITICAL) << "Invalid connection"; return; }
+				if (m_evList[i].filter == EVFILT_READ) c->socketEvent(cbsdSocket::READ); 
+				else c->socketEvent(cbsdSocket::WRITE);
+
 			} else if (m_evList[i].filter == -1){ _handleDisconnect(fd);
 			} else { LOG(cbsdLog::CRITICAL) << "Unknown kevent: "  << m_evList[i].filter; }
 		}
 	}
+}
+
+
+void cbsdListener::_connectFailed(int fd, SSL *ssl, const std::string &msg){ 
+	LOG(cbsdLog::DEBUG) << "Connection error: " << msg; 
+	
+	if(fd != -1){ close(fd); fd=-1; } 
+	if(m_is_ssl_ready && ssl){ SSL_shutdown(ssl); SSL_free(ssl); ssl=NULL; }
 }
 
 

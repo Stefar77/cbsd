@@ -28,26 +28,23 @@
 #include "user.hpp"
 
 cbsdUser::cbsdUser(const uint32_t id, const std::string &name){
-	m_id=id;
-	m_name=name;
+	m_id=id;					// Initialize ID number
+	m_name=name;					// Initialize name
+	m_tasks.clear();				// Make sure we clear stuff when we start
+	m_connections.clear();				// More fresh start stuff..
 
-	Log(cbsdLog::DEBUG, "User loaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "User loaded");)	// Low level DEBUG stuff
 }
 
 cbsdUser::~cbsdUser() {
-	Log(cbsdLog::DEBUG, "User unloaded");
+	// Should probably also try and remove tasks here?!
+
+
+	IFDEBUG(Log(cbsdLog::DEBUG, "User unloaded");)	// Low level DEBUG stuff
 }
 
-void cbsdUser::Log(const uint8_t level, const std::string &data){
-	std::map<std::string,std::string> item;
-	item["msg"]=data;
-	Log(level, item);
-}
-        
-void cbsdUser::Log(const uint8_t level, std::map<std::string,std::string> data){
-	data["user"]=m_name;
-	CBSD->Log(level, data);
-}
+CBSDDBITEM(cbsdUser, "user", CBSD->Users())
+
 
 bool	cbsdUser::linkItem(cbsdTask *task){ 
 	std::map<uint32_t, cbsdTask *>::iterator it = m_tasks.find(task->getID()); 

@@ -42,6 +42,7 @@ int ssl_callback(char *buf, int size, int rwflag, void *u){
 
 cbsdSocket::cbsdSocket() {
 	m_ssl=NULL;
+	m_fd=-1;
 //	LOG(cbsdLog::DEBUG) << "Socket created";
 }
 
@@ -71,6 +72,12 @@ void cbsdSocket::_readyForData(){
 };
 
  
+void cbsdSocket::doDisconnect(){
+	socketEvent(cbsdSocket::CLOSE);
+	if(m_ssl){ SSL_shutdown(m_ssl); SSL_free(m_ssl); m_ssl=NULL; }
+	if(m_fd != -1){ close(m_fd); m_fd=-1; }
+}
+
 void cbsdSocket::socketEvent(const uint8_t ev, void *opt){
 	char    buffer[4096];		// Buffer for receiving stuff..
 
@@ -106,7 +113,7 @@ void cbsdSocket::socketEvent(const uint8_t ev, void *opt){
 
 
 		case WRITE: _readyForData();	return;
-		case CLOSE: _hasDisconnected();	return;
+		case CLOSE: if(m_fd != -1 || m_ssl != NULL) _hasDisconnected(); return;
 
 	}
 
@@ -114,15 +121,16 @@ void cbsdSocket::socketEvent(const uint8_t ev, void *opt){
 }
 
 bool cbsdSocket::transmitRaw(const std::string &data){
-        if(NULL == m_ssl) return(false);
-        
+	bool	ret;
         m_transmit_mutex.lock();
-                
-        bool ret=(SSL_write(m_ssl, data.c_str(), data.size()) > 0);
-                        
-        m_transmit_mutex.unlock();
-                                
-        return(ret);
 
+	if(NULL == m_ssl){
+	        ret=(write(m_fd, data.c_str(), data.size()) == data.size() );
+        }else{
+	        ret=(SSL_write(m_ssl, data.c_str(), data.size()) == data.size() );
+        }                
+        m_transmit_mutex.unlock();
+
+        return(ret);
 }
 

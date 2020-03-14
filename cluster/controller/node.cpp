@@ -28,81 +28,42 @@
 #include "cbsd.hpp"
 #include "../common/structs.hpp"
 
-cbsdNode::cbsdNode(cbsdNodes *nodes, const uint32_t id, const std::string name) {
-	m_nodes=nodes;
+cbsdNode::cbsdNode(const uint32_t id, const std::string name) {
 	m_id=id;				// ID number in the database
 	m_name=name;				// Name of the node
 	m_flags=0;				// Clear all flags.
 	m_configuration=0;			// Unknown arch, mem, etc
 	m_performance=0;			// We know nothing yet...
 	m_jails.clear();			// We start clean
+	m_modules.clear();			// ...
 
-	Log(cbsdLog::DEBUG, "Node loaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Node loaded");)
 }
 
 cbsdNode::~cbsdNode() {
-	Log(cbsdLog::DEBUG, "Node unloaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Node unloaded");)
 }
 
-//bool cbsdNode::isPersistent(){ return(true); };
-/*
-int cbsdNode::_handleCommand(uint16_t command, uint8_t parameters, char *packet) {
-	switch(command){
-		case NCMD_PING:	transmitRaw({0x01,0x00,0x01,0x00}); return(0); 	 // Send PONG back
-		case NCMD_PONG:	return(0);					 // Ignore PONGs
-	}
-	return(1);
-}
+CBSDDBITEM(cbsdNode, "node", CBSD->Nodes())
 
-
-void cbsdNode::_handlePacket(char *packet, size_t len) {
-	int		rc = 0;
-	uint32_t	index=0;
-
-	// Parse the packet..
-	while(rc == 0 && index < len){
-		uint8_t	array_size = packet[index++];
-		if(array_size != 0 && index < len && len-index > 3){
-			for(uint8_t array_index=0; array_index<array_size; array_index++){
-				uint16_t command=(packet[index]<<8)|packet[index+1];
-				uint8_t param_count=packet[index+2];
-				index+=3;					// Skip Command and 'Param array length'
-				
-				uint32_t tmp_index=index;
-				// Check the parameters first..
-				for(int param=0; param<param_count; param++){
-					if(tmp_index > len || len-tmp_index < 2){ rc=-2; break; }	// inclomplete packets probably
-					
-					uint16_t plen=(packet[tmp_index]<<8)|packet[tmp_index+1];
-					tmp_index+=plen+2;
-				}
-				if(rc != 0) break;							// We failed, bail out!
-				if((rc=_handleCommand(command, param_count, &packet[index]))!=0) break;	// Make it so or break it so!
-			}
-		}else rc=-2;
-	}
-	Log(cbsdLog::DEBUG, "Node has sent me a packet");
-}
-*/
 
 /*********** EVENTS ************/
 
 void cbsdNode::_hasConnected(){
 	Log(cbsdLog::INFO, "Node has connected");
 
-	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"up\"}"); // TODO: Change this!
+	m_last_seen=std::time(0);
 
-	m_is_connected=true;			//	state|=NODE_IS_CONNECTED;		
-
-	transmitRaw("testing");
+	Publish("state","up");
+	m_is_connected=true;
 }
 
 void cbsdNode::_hasDisconnected(){
 	Log(cbsdLog::INFO, "Node has disconnected");
 
-	m_nodes->PublishRaw("{\"cmd\":\"event\",\"node\":\""+m_name+"\",\"state\":\"disconnected\"}"); // TODO: Change this!
-
 	m_modules.clear();				//      We renegotiate this when it reconnects!
+
+	Publish("state","disconnected");		//	TODO: Change this!
 
 	m_is_connected=false;				//	state&=~NODE_IS_CONNECTED;
 	m_is_authenticated=false;			//	state&=~NODE_IS_AUTHENTICATED;
@@ -122,7 +83,7 @@ bool cbsdNode::_doSysOp(std::string &data){
 bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 	uint8_t *cmd=(uint8_t *)data.data()+2;				// Command
 	uint8_t *params=(uint8_t *)data.data()+3;			// # parameters to expect
-	uint16_t *tmp=(uint16_t *)((uint8_t *)data.data()+4);		// Size of first parameter
+	uint16_t *tmp=(uint16_t *)((uint8_t *)data.data()+4);		// Pointer to size of first parameter
 
 	if(!m_has_negotiated){
 		if(*cmd != 0 || channel != 0){
@@ -132,32 +93,42 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 	}
 
 
-	switch(*cmd){
-		case 0:
-			if(*params != 1){	// Currently we only have 1 parameter and that is an array of uint16's (mod_id's)
-				Log(cbsdLog::WARNING, "Node is signing on with invalid parameters");
-				break;
-			}
-			if(data.size()-6 < *tmp){
-				Log(cbsdLog::WARNING, "Node is sending incomplete packages");
-				return(false);
-			} else {	// Just acts as a container; Because I want to use a local var in this switch statement...
-
-				uint16_t items=*tmp/2;
-				for(uint16_t i=1; i<=items; i++){
-					tmp=(uint16_t *)((uint8_t *)data.data()+4+(i*2));
-					cbsdModule *module=m_nodes->getModule(*tmp);
-					if(NULL == module){
-						Log(cbsdLog::DEBUG, "Node has module " + std::to_string(*tmp) + " and we don't");
-						continue;	// Not found/unknown, we skip it/do not enable it.
-					}
-					m_modules[*tmp]=module;		// Add module to the node's enabled modules list
-					Log(cbsdLog::DEBUG,  "Node has module " + std::to_string(*tmp));
+	switch(*cmd){					// Warning; Below is where fairies get murdered!
+							// Temporary stuff / needs cleanup
+		case 0:{
+				if(*params != 1){	// Currently we only have 1 parameter and that is an array of uint16's (mod_id's)
+					Log(cbsdLog::WARNING, "Node is signing on with invalid parameters");
+					break;
 				}
-				data=data.substr(6+(items*2));
+				if(data.size()-6 < *tmp){
+					Log(cbsdLog::WARNING, "Node is sending incomplete packages");
+					return(false);
+				} else {	// Just acts as a container; Because I want to use a local var in this switch statement...
+
+					uint16_t items=*tmp/2;
+					for(uint16_t i=1; i<=items; i++){
+						tmp++; 
+						cbsdModule *module=CBSD->Nodes()->getModule(*tmp);
+						if(NULL == module){
+							Log(cbsdLog::DEBUG, "Node has module " + std::to_string(*tmp) + " and we don't");
+							continue;			// Not found/unknown, we skip it/do not enable it.
+						}
+						m_modules[*tmp]=module;			// Add module to the node's enabled modules list
+						Log(cbsdLog::DEBUG,  "Node has module " + module->getName() + ", enabling it!");
+					}
+					data=data.substr(6+(items*2));
+				}
+
+
+				// Temporary and ugly way to send back the list of modules we support...
+				std::string response;
+				uint16_t tval=m_modules.size();		// Deviate from the protocol a bit here for now.. :-/
+				response.append((char *)&tval,2);
+				for (std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++){ tval=it->first; response.append((char *)&tval,2); }
+				transmitRaw(response);			// Temporary to make this work for now.
+				m_has_negotiated=true;		
+				m_is_authenticated=true;		// TODO: for now it's OK we have certs and firewall..
 			}
-			m_has_negotiated=true;		
-			m_is_authenticated=true;		// TODO: for now it's OK we have certs and firewall..
 			break;
 
 		default:
@@ -170,16 +141,19 @@ bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
 }
 
 
-void cbsdNode::_hasData(const std::string &in_data){
-	std::string data=in_data;
-	if(data.size() < 2) return;			// To small?
+void cbsdNode::_hasData(const std::string &in_data){			// Todo: make this better
+	std::string data=in_data;					// ^^^^: Just use A pointer here.
+
+	m_last_seen=std::time(0);
+
+	if(data.size() < 6) return;					// Minimal packetsize is 6 bytes
 	uint16_t *tmp=(uint16_t *)data.data();
 	uint16_t channel=*tmp;
 
 	if(!m_is_authenticated){ if(!_doAuth(data, channel)) return; } 
 
 	while(data.size() > 2){
-		tmp=(uint16_t *)data.data(); channel=*tmp;
+		tmp=(uint16_t *)data.data(); channel=*tmp;		// TODO: Fix this
 
 		if(channel == 0){
 			if(!_doSysOp(data)) return;
@@ -213,21 +187,18 @@ void cbsdNode::_hasData(const std::string &in_data){
 
 }
 
+/*
+ * Ready to write data to the client [not used yet]
+ */
+
 void cbsdNode::_readyForData(){
 	Log(cbsdLog::DEBUG, "Node is ready");
 }
 
-void cbsdNode::Log(const uint8_t level, const std::string &data){
-	std::map<std::string,std::string> item;
-	item["msg"]=data;
-	Log(level, item);
-}
-
-void cbsdNode::Log(const uint8_t level, std::map<std::string,std::string> data){
-	data["node"]=m_name;
-	m_nodes->Log(level, data);
-}
-
+/*  
+ * Some performance stuff we store in the node class
+ * - Probably should make this do some averaging.
+ */
 void cbsdNode::setPerfdata(const uint16_t what, uint64_t val){
 	switch(what){
 		case 0: 
@@ -238,6 +209,7 @@ void cbsdNode::setPerfdata(const uint16_t what, uint64_t val){
 			stats["mem"]=std::to_string(0|m_pmem);
 			stats["openfiles"]=std::to_string(m_openfiles);
 			stats["temperature"]=std::to_string(m_temperature);
+			stats["module"]="1";
 
 			Log(cbsdLog::DEBUG, stats); 
 
@@ -246,4 +218,6 @@ void cbsdNode::setPerfdata(const uint16_t what, uint64_t val){
 		case 1: Log(cbsdLog::WARNING, "Invalid perfdata type!"); break;
 	}
 }
+
+
 

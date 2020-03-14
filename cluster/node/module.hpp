@@ -34,9 +34,11 @@ class cbsdModule {
 	inline std::string 	&getName(){ return(m_name); }
 	inline uint16_t 	getID(){ return(m_id); }
 	void			TransmitBuffered(const uint16_t code, const std::string &data);
-	void			Disable(){ m_flag_thread_disabled=true; }
-	void			Enable(){ m_flag_thread_disabled=false; }
-	bool			isEnabled(){ return(!m_flag_thread_disabled); }
+	inline void		Disable(){ setEnabled(false); }
+	inline void		Enable(){ setEnabled(true); }
+	inline bool		isEnabled(){ return(m_is_enabled); }
+	void 			setEnabled(bool state);
+
 
  protected:
 	bool			 doLoad(cbsdMaster *master);
@@ -62,9 +64,9 @@ class cbsdModule {
 	 uint16_t		m_flags;			// flags
 	 struct{
 	  uint16_t		m_flag_reserved:13;		// ...
-	  uint16_t		m_flag_thread_disabled:1;	// Thread is disabled
-	  uint16_t		m_flag_thread_stopping:1;	// Thread is stopping
-	  uint16_t		m_flag_thread_running:1;	// Thread is running
+	  uint16_t		m_is_enabled:1;			// Module is enabled
+	  uint16_t		m_is_thread_stopping:1;		// Thread is stopping
+	  uint16_t		m_is_thread_running:1;		// Thread is running
 	 };
 	};
 

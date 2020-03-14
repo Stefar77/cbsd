@@ -4,7 +4,7 @@ COP=../../obj/common/
 BIN=../../bin/
 INCLUDES=-I/usr/local/include/
 LIBS=-L/usr/local/lib -lthr -lcrypto -lutil -llz4 -lssl -lsqlite3
-DEBUG=-g -O0
+DEBUG=-g -O0 -DWITH_DEBUG
 
 ${MOP}%.o: %.cpp
 	$(CC) -DWITH_REDIS ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
@@ -23,10 +23,10 @@ clean-all:
 	rm ../../obj/controller/* ../../obj/controller/connectors/* ../../obj/controller/modules/*.o ../../bin/cbsddaemon ../../bin/*.core > /dev/null 2>&1 || true
 
 ${MOP}jail.o: ../shared/jail.cpp
-	$(CC) ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
+	$(CC)  -DWITH_REDIS ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
 
 ${MOP}connector.o: ../shared/connector.cpp
-	$(CC) ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
+	$(CC)  -DWITH_REDIS ${DEBUG} -Wall -std=c++11 ${INCLUDES} -c -o $@ $<
 
 ${COP}socket.o: ../common/socket.cpp
 	(cd ../common/ && gmake )

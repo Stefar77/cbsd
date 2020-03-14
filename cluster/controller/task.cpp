@@ -30,13 +30,15 @@
 cbsdTask::cbsdTask(const uint32_t id, cbsdUser *owner, const std::string &name){
 	m_id=id;
 	m_name=name;
-//	if((m_owner=owner) != NULL) owner->linkItem(this);	// Lock it so we do not unload the owner..
-	Log(cbsdLog::DEBUG, "Task loaded");
+	m_flags=0;
+	m_config=0;
+	if((m_owner=owner) != NULL) m_owner->linkItem(this);	// Lock it so we do not unload the owner..
+	IFDEBUG(Log(cbsdLog::DEBUG, "Task loaded");)
 }
 
 cbsdTask::~cbsdTask() {
-//	if(NULL != m_owner) owner->unlinkItem(this);		// We are no longer locking this
-	Log(cbsdLog::DEBUG, "Task unloaded");
+	if(NULL != m_owner) m_owner->unlinkItem(this);		// We are no longer locking this
+	IFDEBUG(Log(cbsdLog::DEBUG, "Task unloaded");)
 }
 
 void cbsdTask::Log(const uint8_t level, const std::string &data){

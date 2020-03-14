@@ -7,17 +7,17 @@ default_ca	= CA_default		# The default ca section
 ####################################################################
 [ CA_default ]
 
-dir		= /usr/local/cbsd-v2/cluster/pki	# Where everything is kept
-certs		= /usr/local/cbsd-v2/cluster/pki			# Where the issued certs are kept
-crl_dir		= /usr/local/cbsd-v2/cluster/pki			# Where the issued crl are kept
-database	= /usr/local/cbsd-v2/cluster/pki/index.txt	# database index file.
-new_certs_dir	= /usr/local/cbsd-v2/cluster/pki/certs_by_serial	# default place for new certs.
+dir		= /usr/local/cbsd/cluster/pki	# Where everything is kept
+certs		= /usr/local/cbsd/cluster/pki			# Where the issued certs are kept
+crl_dir		= /usr/local/cbsd/cluster/pki			# Where the issued crl are kept
+database	= /usr/local/cbsd/cluster/pki/index.txt	# database index file.
+new_certs_dir	= /usr/local/cbsd/cluster/pki/certs_by_serial	# default place for new certs.
 
-certificate	= /usr/local/cbsd-v2/cluster/pki/ca.crt	 	# The CA certificate
-serial		= /usr/local/cbsd-v2/cluster/pki/serial 		# The current serial number
-crl		= /usr/local/cbsd-v2/cluster/pki/crl.pem 		# The current CRL
-private_key	= /usr/local/cbsd-v2/cluster/pki/private/ca.key	# The private key
-RANDFILE	= /usr/local/cbsd-v2/cluster/pki/.rand		# private random number file
+certificate	= /usr/local/cbsd/cluster/pki/ca.crt	 	# The CA certificate
+serial		= /usr/local/cbsd/cluster/pki/serial 		# The current serial number
+crl		= /usr/local/cbsd/cluster/pki/crl.pem 		# The current CRL
+private_key	= /usr/local/cbsd/cluster/pki/private/ca.key	# The private key
+RANDFILE	= /usr/local/cbsd/cluster/pki/.rand		# private random number file
 
 x509_extensions	= basic_exts		# The extensions to add to the cert
 
@@ -69,7 +69,7 @@ x509_extensions		= easyrsa_ca	# The extensions to add to the self signed cert
 [ cn_only ]
 commonName		= Common Name (eg: your user, host, or server name)
 commonName_max		= 64
-commonName_default	= ChangeMe
+commonName_default	= SuperBSD
 
 # Easy-RSA DN for org support:
 [ org ]
@@ -92,7 +92,7 @@ organizationalUnitName_default	= My Organizational Unit
 
 commonName			= Common Name (eg: your user, host, or server name)
 commonName_max			= 64
-commonName_default		= ChangeMe
+commonName_default		= SuperBSD
 
 emailAddress			= Email Address
 emailAddress_default		= me@example.net

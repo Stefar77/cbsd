@@ -36,44 +36,44 @@ cbsdRedis::cbsdRedis(const std::string &host, uint16_t port, const std::string &
 	m_database=database;
 	m_flags=0;							// Clear all flags.
 
-	Log(cbsdLog::DEBUG, "Connection loaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connection loaded");)
 }
 
 cbsdRedis::~cbsdRedis() {
 	m_response="";
 	m_cv.notify_all();						// Wakie wakie..
-	Log(cbsdLog::DEBUG, "Connection unloaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connection unloaded");)
 }
 
-std::map<std::string, std::string> cbsdRedis::fetchObject(const std::string &container, const std::string &match, const std::string &val){
-	std::map<std::string, std::string> empty;
+//std::map<std::string, std::string> cbsdRedis::fetchObject(const std::string &container, const std::string &match, const std::string &val){
+//	std::map<std::string, std::string> empty;
 
-	if(container == "node"){
-		if(match == "name"){
+//	if(container == "node"){
+//		if(match == "name"){
 //			return(hGetAll("nodes:"+val)));
-		}else if(match == "id"){
+//		}else if(match == "id"){
 //			return(hGetAll("nodes:"+val)));
+//		}
+//	}
 
-		}
-	}
-	
-	return(empty);	
-}
+//	return(empty);	
+//}
 
-bool	cbsdRedis::storeObject(const std::string &container, std::map<std::string, std::string> data) { 
+//bool	cbsdRedis::storeObject(const std::string &container, std::map<std::string, std::string> data) { 
 //	if(container == "node"){
 //		if data["id"] exists {
 //			hSet("nodes:"+data["id"], data);
 //			sAdd("nodenames", data["name"], data["id"]);
 //		}
 //	}
-	return(false);
-}
+//	return(false);
+//}
 
 
 
 /* Private functions */
 bool cbsdRedis::_doConnect(){
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connecting");)
 	if(!Connect(m_host, m_port)){
 		Log(cbsdLog::WARNING, "Failed to connect");
 		return(false);
@@ -96,6 +96,7 @@ bool cbsdRedis::_doConnect(){
 			return(false);
 		}
 	}
+	IFDEBUG(Log(cbsdLog::DEBUG, "Connected to server");)
 	return(true);		// We are happy and connected! [for now]
 }
 
@@ -130,6 +131,35 @@ uint32_t cbsdRedis::Publish(const std::string &queue, const std::string &event){
 }
 
 /* HASH functions */
+std::map<std::string,std::string> cbsdRedis::hGetAll(const std::string &hash){
+	std::map<std::string,std::string> res;
+	std::vector<std::string> oplist = {"HGETALL", hash};
+	std::string data=_doRequest(oplist);
+
+	res.clear();
+
+
+	if(data.substr(0,1) != "*") return(res);		// Invalid response.
+
+	// Here comes a giant dragon..
+	std::size_t pos=data.find("\n");
+	while(pos != std::string::npos){
+		data=data.substr(pos+1,data.size()-(pos+3));
+		if((pos=data.find("\n"))==std::string::npos || data.substr(0,1) != "$") return(res);	// Invalid response.
+		data=data.substr(pos+1,data.size()-(pos+3));			// Skip the size
+		if((pos=data.find("\n"))==std::string::npos) return(res);	// Invalid
+		std::string key=data.substr(0, pos-1);				// Get the key
+		data=data.substr(pos+1,data.size()-(pos+3));			// Skip the key
+		if((pos=data.find("\n"))==std::string::npos || data.substr(0,1) != "$") return(res);	// Invalid response.
+		data=data.substr(pos+1,data.size()-(pos+3));			// Skip the size
+		if((pos=data.find("\n"))==std::string::npos) return(res);	// Invalid
+		res[key]=data.substr(0, pos-1);  		
+		pos=data.find("\n");
+	}
+	return(res);
+
+}
+
 std::string cbsdRedis::hGet(const std::string &hash, const std::string &key){
 	std::vector<std::string> oplist = {"HGET", hash, key};
 	std::string data=_doRequest(oplist);

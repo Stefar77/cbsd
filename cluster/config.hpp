@@ -11,8 +11,10 @@
 #define	ControllerKEY "/etc/ssl/Controller.key"
 #define	ControllerPassword "geheim"
 
-#define	NodeCRT "/etc/ssl/GUI.crt"
-#define	NodeKEY "/etc/ssl/GUI.key"
+#define	NodeCRT "/etc/ssl/SuperBSD.crt"
+#define	NodeKEY "/etc/ssl/SuperBSD.key"
+//#define	NodeCRT "/etc/ssl/GUI.crt"
+//#define	NodeKEY "/etc/ssl/GUI.key"
 #define	NodePassword "geheim"
 
 /* REDIS CONFIG */

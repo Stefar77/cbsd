@@ -8,16 +8,18 @@
 
 extern cbsdLog *Log;
 
-class cbsdRedis: public cbsdConnector, cbsdObjectStore {
+class cbsdRedis: public cbsdConnector { // , cbsdObjectStore {
  public:
 	cbsdRedis(const std::string &host, uint16_t port, const std::string &password, uint32_t database);
 	~cbsdRedis();
 
 	/* Queue functions */
-	uint32_t		Publish(const std::string &queue, const std::string &event);
+	uint32_t		 Publish(const std::string &queue, const std::string &event);
 
 	/* HASH functions */
 	std::string		 hGet(const std::string &hash, const std::string &key);
+	std::map<std::string,std::string> hGetAll(const std::string &hash);
+
 	uint32_t		 hSet(const std::string &hash, const std::string &key, const std::string &val);
 	uint32_t		 hSet(const std::string &hash, std::map<std::string, std::string> vals);
 	uint32_t		 hDel(const std::string &hash, const std::string &key);
@@ -27,10 +29,10 @@ class cbsdRedis: public cbsdConnector, cbsdObjectStore {
 
 
 	// Objectstore interfaces
-	uint8_t					 getPriority() override { return(1); }
-	bool					 storeObject(const std::string &container, std::map<std::string, std::string> data) override;
-	bool    				 hasContainer(const std::string &container) override { return(hExists(container) > 0); }
-	std::map<std::string, std::string>	 fetchObject(const std::string &container, const std::string &match, const std::string &val) override;
+//	uint8_t					 getPriority() override { return(1); }
+//	bool					 storeObject(const std::string &container, std::map<std::string, std::string> data) override;
+//	bool    				 hasContainer(const std::string &container) override { return(hExists(container) > 0); }
+//	std::map<std::string, std::string>	 fetchObject(const std::string &container, const std::string &match, const std::string &val) override;
 
 
 

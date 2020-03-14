@@ -30,20 +30,20 @@
 cbsdUsers::cbsdUsers(){
 	m_users.clear();					// We always start fresh
 
-	Log(cbsdLog::DEBUG, "Users database started");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Users database started");)
 }
 
 cbsdUsers::~cbsdUsers() {
 
 	m_mutex.lock();
-	for (std::map<uint32_t, cbsdUser *>::iterator it = m_users.begin(); it != m_users.end(); it++){
+	FOREACH_USERS {
 //		it->second->doEvent(cbsdUser::UNLOAD);
 		delete it->second;
         }
 	m_users.clear();
 	m_mutex.unlock();             
 
-	Log(cbsdLog::DEBUG, "Users database unloaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Users database unloaded");)
 }
 
 CBSDDBCLASS(cbsdUsers, cbsdUser, m_users)

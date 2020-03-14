@@ -35,6 +35,8 @@ class cbsdMaster: public cbsdConnector {
 	std::map<uint32_t, cbsdJail *>		 m_jids;			// All running jails on this host, indexed on JID
 
 
+	bool					 m_has_negotiated;
+
 };
 
 

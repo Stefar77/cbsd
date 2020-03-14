@@ -83,14 +83,14 @@ int main(int argc, char **argv){
 	master=new cbsdMaster();
 	master->loadModule(new cbsdRACCT());			// Load modules first, then add contoller so it can negotiate.
 
-	master->doSetup(ControllerIP, ControllerPORT);
+	keepRunning=master->doSetup(ControllerIP, ControllerPORT);
 
 	while(keepRunning){
 		/*   
  		 *   I love this thread! 
 		 *    - It just sleeps all the time...
 		 */
-		sleep(60);
+		sleep(1);
 	}
 
 	LOG(cbsdLog::INFO) << "Shutting down node daemon!";

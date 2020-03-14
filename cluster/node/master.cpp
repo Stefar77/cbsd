@@ -33,8 +33,11 @@
 #include <iostream>		// std::cout 
 #include "master.hpp"
 #include "../config.hpp"
+extern bool keepRunning;
+
 
 cbsdMaster::cbsdMaster(): cbsdConnector("Master") {
+	m_has_negotiated=false;
 	m_jails.clear();
 	m_jids.clear();
 	m_modules.clear();
@@ -114,11 +117,9 @@ bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
 	if(!setupSSL(ClusterCA, NodeCRT, NodeKEY, NodePassword)){ LOG(cbsdLog::FATAL) << "Failed to initialize SSL!"; return(false); }
 	if(Connect(hostname, port) && _doNetInit()) return(true); 
 
-	while(true){
-		LOG(cbsdLog::FATAL) << "Master failed to connect!"; 
-		sleep(5);
-		if(Connect() && _doNetInit()) return(true);
-	}
+	LOG(cbsdLog::FATAL) << "Master failed to connect!"; 
+//	if(Connect() && _doNetInit()) return(true);
+//	}
 	return(false);
 }
 
@@ -127,11 +128,30 @@ bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){
 //}
 
 bool cbsdMaster::_handleData(const std::string &data){
+	if(data == "--quit"){ keepRunning=false; return(false); }
+	if(!m_has_negotiated){
+		uint16_t *tmp=(uint16_t *)data.data();
+		uint16_t cnt=*tmp;
+		if(cnt > 0){		// TODO: FIX ME
+			for(int i=0; i<cnt; i++){
+				tmp++;
+				LOG(cbsdLog::DEBUG) << "Enable module [" << *tmp << "]";
+				m_modules[*tmp]->setEnabled(true);
+			}
+		}
+		m_has_negotiated=true;
+		return(true);
+	}
+	uint32_t *ping=(uint32_t *)data.data();
+	if(*ping == 0){ TransmitRaw(data); return(true); }	// For now
+
+
 	LOG(cbsdLog::DEBUG) << "Got data from server [" << data << "]";
 	return(true);
 }
 
 void cbsdMaster::_Disconnected(){
+	m_has_negotiated=false;
 	LOG(cbsdLog::DEBUG) << "Got disconnected from server";
 }
 

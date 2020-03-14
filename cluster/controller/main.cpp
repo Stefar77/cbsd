@@ -37,6 +37,7 @@ void signalHandler(int sig) {
 	switch(sig){
 		case SIGTERM: keepRunning=false; LOG(cbsdLog::WARNING) << "Terminate signal received, quitting!"; break;
 		case SIGHUP: LOG(cbsdLog::INFO) << "Signal HUP received"; break;
+		case SIGPIPE: LOG(cbsdLog::INFO) << "Signal BROKEN-PIPE received"; break;
 		default: LOG(cbsdLog::INFO) << "Signal " << sig << " received!"; break;
 	}
 }
@@ -51,15 +52,11 @@ int main(int argc, char **argv){
 	keepRunning=true;
 	signal(SIGHUP, signalHandler);  
 	signal(SIGTERM, signalHandler);  
+	signal(SIGPIPE, signalHandler);
 
-	CBSD = new cbsdCBSD();
 
-
-	// *** seeing if I like the feel of this..
-	// CBSD=cbsdCBSD::getInstance();
-	// CBSD->Nodes()->doSomething();
-	// CBSD->findNode("test");
-	// CBSD->findJail("test");
+	CBSD = new cbsdCBSD("Controller");
+	if(!CBSD->Init()) exit(1);
 
 	while(keepRunning){
 		/*   

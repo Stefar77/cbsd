@@ -29,23 +29,14 @@
 #include "node.hpp"
 
 cbsdModule::cbsdModule(const uint16_t id, const std::string &name) : m_name(name), m_id(id) {
-        m_flags = 0;
+	m_flags = 0;
 
-	Log(cbsdLog::DEBUG, "Module loaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Module loaded");)
 }
 
 cbsdModule::~cbsdModule() {
-	Log(cbsdLog::DEBUG, "Module unloaded");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Module unloaded");)
 }
-
-
-//void	cbsdModule::moduleUnloading(){
-//	LOG(cbsdLog::WARNING) << "Module '" << m_name << "' unhandled event: moduleUnloading()";
-//}
-
-//void	cbsdModule::moduleLoaded(){
-//	LOG(cbsdLog::WARNING) << "Module '" << m_name << "' unhandled event: moduleUnloading()";
-//}
 
 void    cbsdModule::moduleThread(void){
 	Log(cbsdLog::WARNING, "unimplemented callback: moduleThread()");
@@ -53,7 +44,7 @@ void    cbsdModule::moduleThread(void){
 }
 
 void    cbsdModule::threadHandler(void){
-	Log(cbsdLog::DEBUG, "Starting thread");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Starting thread");)
 
 	m_flag_thread_running=true;
 	while(!m_flag_thread_stopping) 
@@ -61,15 +52,13 @@ void    cbsdModule::threadHandler(void){
 
 	m_flag_thread_running=false;
 
-	Log(cbsdLog::DEBUG, "Stopped thread");
+	IFDEBUG(Log(cbsdLog::DEBUG, "Stopped thread");)
 }
 
-bool	cbsdModule::doLoad(cbsdNodes *nodes){
-	m_nodes=nodes;
-
+bool	cbsdModule::Init(){
 	if(!moduleLoaded()) return(false);
 
-	m_threadID=threadHandlerProc();
+	m_threadID=std::thread([=] { threadHandler(); });
 	return(true);
 }
 
@@ -77,18 +66,14 @@ void	cbsdModule::doUnload(){
 	moduleUnloading();
 	if(m_flag_thread_running){
 		m_flag_thread_stopping=true;
-         
-		// Wait for the thread to stop..
-		while(m_flag_thread_running) usleep(100);
-        
-		Log(cbsdLog::DEBUG, "Joining the thread");
+		IFDEBUG(Log(cbsdLog::DEBUG, "Joining the thread");)
 		m_threadID.join();
 	}
 
 }
 
 bool	cbsdModule::transmitRaw(cbsdNode *node, const std::string &data){
-	if(!node && !m_nodes){ // 'Should never happen!' -- famous last words..
+	if(!node){ // 'Should never happen!' -- famous last words..
 		Log(cbsdLog::WARNING, "Module tried to transmit to or with NULL!");
 		return(false); 
 	} 
@@ -96,12 +81,12 @@ bool	cbsdModule::transmitRaw(cbsdNode *node, const std::string &data){
 	std::string tmp=std::string();
 	tmp.append((char *)&m_id,2);
 	tmp.append(data);
-	if(node) return(node->transmitRaw(tmp)); else return(m_nodes->transmitRaw(tmp));
+	if(node) return(node->transmitRaw(tmp)); else return(CBSD->Nodes()->transmitRaw(tmp));
 	
 }
 
 bool	cbsdModule::Transmit(cbsdNode *node, const uint16_t channel, const std::string &data){
-	if(!node && !m_nodes){ // 'Should never happen!' -- famous last words..
+	if(!node){ // 'Should never happen!' -- famous last words..
 		Log(cbsdLog::WARNING, "Module tried to transmit to or with NULL!");
 		return(false); 
 	} 
@@ -112,7 +97,7 @@ bool	cbsdModule::Transmit(cbsdNode *node, const uint16_t channel, const std::str
 	uint32_t len=tmp.size();
 	tmp.append((char *)&len,4);
 	tmp.append(data);
-	if(node) return(node->transmitRaw(tmp)); else return(m_nodes->transmitRaw(tmp));	
+	if(node) return(node->transmitRaw(tmp)); else return(CBSD->Nodes()->transmitRaw(tmp));	
 }
 
 

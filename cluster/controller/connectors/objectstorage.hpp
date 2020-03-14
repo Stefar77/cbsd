@@ -15,3 +15,15 @@ class cbsdObjectStore {
 };
 
 #endif
+
+
+/*
+	getObject(table, index, item);	// index usually is name or id;
+	setObject(table, item);		//
+	getIndex(table, index, limit);	//
+	
+
+
+
+
+*/

@@ -34,7 +34,7 @@ class cbsdConnector {
 	/* Functions/Methods */
 	void				threadHandler(void);
 	inline std::thread		threadHandlerProc(void){return std::thread([=] { threadHandler(); });}
-	inline bool 			_ConnectFailed();
+	inline bool 			_ConnectFailed(const std::string &reason);
 	virtual bool			_handleData(const std::string &data)=0;
 	virtual void 			_Disconnected();
 	virtual bool 			_Reconnect();

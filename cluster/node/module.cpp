@@ -55,11 +55,9 @@ void    cbsdModule::moduleThread(void){
 void    cbsdModule::threadHandler(void){
         LOG(cbsdLog::DEBUG) << "Starting '" << m_name << "' thread";
 
-        m_flag_thread_running=true;
-        while(!m_flag_thread_stopping) 
-		if(m_flag_thread_disabled) sleep(1); else moduleThread();
-
-        m_flag_thread_running=false;
+        m_is_thread_running=true;
+        while(!m_is_thread_stopping) moduleThread();
+        m_is_thread_running=false;
 
         LOG(cbsdLog::DEBUG) << "Stopped '" << m_name << "' thread";
 }
@@ -70,23 +68,30 @@ bool	cbsdModule::doLoad(cbsdMaster *master){
 
 	if(!moduleLoaded()) return(false);
 
-	m_threadID=threadHandlerProc();
 	return(true);
 }
 
 void	cbsdModule::doUnload(){
 	moduleUnloading();
-	if(m_flag_thread_running){
-		m_flag_thread_stopping=true;
-         
-		// Wait for the thread to stop..
-		while(m_flag_thread_running) usleep(100);
-        
-		LOG(cbsdLog::DEBUG) << "Joining '" << m_name << "' thread";
-		m_threadID.join();
-	}
+	setEnabled(false);
 
 }
+
+void cbsdModule::setEnabled(bool state){ 
+	if(state){
+		if(!m_is_thread_running) m_threadID=threadHandlerProc();
+		m_is_enabled=true;
+	}else{
+		m_is_enabled=false;
+		if(m_is_thread_running){
+			m_is_thread_stopping=true;
+			LOG(cbsdLog::DEBUG) << "Joining '" << m_name << "' thread";
+			while(m_is_thread_running) usleep(100);
+			m_threadID.join();
+		}
+	}
+}
+
 
 void	cbsdModule::TransmitBuffered(const uint16_t code, const std::string &data){
 	if(!m_master){ // 'Should never happen!' -- famous last words..

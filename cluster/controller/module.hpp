@@ -1,9 +1,12 @@
 #ifndef MODULE_HPP
 #define MODULE_HPP
 
+#define MODULES_MAP std::map<uint16_t, cbsdModule *>
+
 #include "nodes.hpp"
 #include "../common/moduleids.hpp"
 #include "../config.hpp"
+
 
 
 #define APPEND_STR(A, B) A ## B
@@ -26,6 +29,7 @@
 class cbsdNode;
 class cbsdModule {
  friend class cbsdNode;
+ friend class cbsdNodes;
 
  public:
 	cbsdModule(const uint16_t id, const std::string &name);
@@ -43,7 +47,7 @@ class cbsdModule {
         void			Log(const uint8_t level, std::map<std::string,std::string> data);
 
  protected:
-	bool			 doLoad(cbsdNodes *nodes);
+	bool			 Init();
 	void			 doUnload();
 
 
@@ -60,7 +64,6 @@ class cbsdModule {
 
 	std::thread		m_threadID;                     // ThreadID for the modules thread..
         void			threadHandler(void);
-        inline std::thread	threadHandlerProc(void){return std::thread([=] { threadHandler(); });}
 
 	uint16_t		m_id;				// Module ID number
 	union {
