@@ -95,22 +95,52 @@ bool cbsdMaster::loadModule(cbsdModule *mod){
 }
 
 bool cbsdMaster::_doNetInit(){
-	std::string mod_list = std::string();
-	struct {
-		uint16_t	chan;
-		uint8_t		cmd;		// Channel 0 needs command
-		uint8_t		params;		// # of parameters 
-		uint16_t	param0len;	// Leghth of the first parameter
-						// .. data comes here and may repeat 'params' times
-	} cmd={0,0,1,static_cast<uint16_t>(m_modules.size()*2)}; // CBSDCMD_INIT;
+	std::string ipacket = std::string();
+//	std::string mod_list = std::string();
 
-	mod_list.append((char *)&cmd, sizeof(cmd));
+	CNINIT_t	ipkt;
+	ipkt.head=1;				// Special header [chan=0, cmd=0, params=1]
+	ipkt.version=1;				// Packet version
+	ipkt.uptime=cbsdUtils::getUptime(); 	//
+	ipkt.memory=cbsdUtils::getMemory(); 	//
+	ipkt.cores=cbsdUtils::cpuCores();	//
+	ipkt.arch=cbsdUtils::getArch();		//
+	ipkt.modules=m_modules.size();		//
+	ipkt.jails=0;				//
+	ipkt.bhyves=0;				//
+	ipacket.append((char *)&ipkt, sizeof(CNINIT_t));
 
-	LOG(cbsdLog::DEBUG) << "Init " << std::to_string(cmd.param0len) << "!";
+	// Add all module ID's
+	for(std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++) 
+		ipacket.append((char *)&it->first, 2); 
+
+	/*
+		// Add all jails
+		//...
+
+		// Add all bhyves
+		//...
+
+	*/
+
+//	struct {
+//		uint16_t	chan;
+//		uint8_t		cmd;		// Channel 0 needs command
+//		uint8_t		params;		// # of parameters 
+//		uint16_t	param0len;	// Leghth of the first parameter
+//						// .. data comes here and may repeat 'params' times
+//	} cmd={0,0,1,static_cast<uint16_t>(m_modules.size()*2)}; // CBSDCMD_INIT;
+//
+//	mod_list.append((char *)&cmd, sizeof(cmd));
+
+//	LOG(cbsdLog::DEBUG) << "Init " << std::to_string(ipkt.modules) << "!";
 
 	// Negotiate modules..
-	for(std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++) mod_list.append((char *)&it->first, 2);
-	return(TransmitRaw(mod_list));
+//	for(std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++) mod_list.append((char *)&it->first, 2);
+
+
+
+	return(TransmitRaw(ipacket));
 }
 
 bool cbsdMaster::doSetup(const std::string &hostname, uint16_t port){

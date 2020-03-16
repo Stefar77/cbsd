@@ -34,6 +34,9 @@ class cbsdNode: public cbsdSocket {
 	/* Events */
 // 	void				statsReceived();
 	void				setPerfdata(const uint16_t what, uint64_t val);
+	std::string 			getJSON(uint32_t flags);
+
+
 
  protected:
 	bool 				isPersistent() override { return(true); } 
@@ -90,12 +93,14 @@ class cbsdNode: public cbsdSocket {
 		};
 	  };
 	union {
-		uint64_t		m_configuration;
+		uint64_t		m_configuration[2];
 		struct{
 			uint8_t		m_arch;			// x86, x64, a32, a64, ...
 			uint8_t		m_config_flags;		// 
 			uint16_t	m_cores;		// >255 cores please, gimme! :-)
 			uint32_t	m_memory;		// Only updates at node[daemon] (re)start
+			uint32_t	m_uptime;		// 
+			uint32_t	m_not_used;		// 
 		};
 	  };
 

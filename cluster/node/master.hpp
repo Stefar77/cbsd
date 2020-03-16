@@ -3,6 +3,7 @@
 
 #include <map>
 #include "../common/log.hpp"
+#include "../common/structs.hpp"
 #include "../shared/connector.hpp"
 #include "utils.hpp"
 #include "module.hpp"				// Jey looped dependency.. :-)

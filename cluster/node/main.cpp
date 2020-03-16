@@ -30,7 +30,7 @@
 #include <csignal>
 #include "../common/version.hpp"
 #include "master.hpp"
-#include "modules/racct.hpp"
+#include "modules/all.hpp"
 #include "../config.hpp"
 #include "../common/sqlite.hpp"
 
@@ -82,6 +82,7 @@ int main(int argc, char **argv){
 
 	master=new cbsdMaster();
 	master->loadModule(new cbsdRACCT());			// Load modules first, then add contoller so it can negotiate.
+	master->loadModule(new cbsdMSGBUS());
 
 	keepRunning=master->doSetup(ControllerIP, ControllerPORT);
 

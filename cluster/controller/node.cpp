@@ -32,7 +32,8 @@ cbsdNode::cbsdNode(const uint32_t id, const std::string name) {
 	m_id=id;				// ID number in the database
 	m_name=name;				// Name of the node
 	m_flags=0;				// Clear all flags.
-	m_configuration=0;			// Unknown arch, mem, etc
+	m_configuration[0]=0;			// Unknown arch, mem, etc
+	m_configuration[1]=0;			// Unknown arch, mem, etc
 	m_performance=0;			// We know nothing yet...
 	m_jails.clear();			// We start clean
 	m_modules.clear();			// ...
@@ -60,6 +61,8 @@ void cbsdNode::_hasConnected(){
 
 void cbsdNode::_hasDisconnected(){
 	Log(cbsdLog::INFO, "Node has disconnected");
+	Log(cbsdLog::DEBUG, getJSON(1));
+
 
 	m_modules.clear();				//      We renegotiate this when it reconnects!
 
@@ -81,63 +84,45 @@ bool cbsdNode::_doSysOp(std::string &data){
 }
 
 bool cbsdNode::_doAuth(std::string &data, const uint16_t channel){
-	uint8_t *cmd=(uint8_t *)data.data()+2;				// Command
-	uint8_t *params=(uint8_t *)data.data()+3;			// # parameters to expect
-	uint16_t *tmp=(uint16_t *)((uint8_t *)data.data()+4);		// Pointer to size of first parameter
+	CNINIT_t *pkt=(CNINIT_t *)data.data();
 
-	if(!m_has_negotiated){
-		if(*cmd != 0 || channel != 0){
-			Log(cbsdLog::DEBUG, "Invalid negotiation");
-			return(false);	// TODO!!
+	if(data.size() < sizeof(CNINIT_t)){ Log(cbsdLog::WARNING, "Invalid size, dropping client"); return(false); }
+	if(pkt->head != 1){ Log(cbsdLog::WARNING, "Invalid negotiation, dropping client [" + std::to_string(pkt->head) + "]"); return(false); }
+	if(pkt->version != 1){ Log(cbsdLog::WARNING, "Invalid version, dropping client"); return(false); }
+
+	m_arch=pkt->arch;			// x86, x64, a32, a64, ...
+	m_cores=pkt->cores;			// >255 cores please, gimme! :-)
+	m_memory=pkt->memory;
+	m_uptime=pkt->uptime;			// Todo check if rebooted here	
+//	m_jail_count=pkt->jails;		//
+//	m_bhyve_count=pkt->bhyves;		//
+
+	uint16_t items=pkt->modules;		// Amount of modules
+
+	Log(cbsdLog::DEBUG, "Checking " + std::to_string(items) + " modules!");
+
+	uint16_t *tmp=(uint16_t *)((uint8_t *)data.data()+sizeof(CNINIT_t));		// Pointer to size of first parameter
+	for(uint16_t i=1; i<=items; tmp++,i++){
+
+		cbsdModule *module=CBSD->Nodes()->getModule(*tmp);
+		if(NULL == module){
+			Log(cbsdLog::DEBUG, "Node has module " + std::to_string(*tmp) + " and we don't");
+			continue;			// Not found/unknown, we skip it/do not enable it.
 		}
+		m_modules[*tmp]=module;			// Add module to the node's enabled modules list
+		Log(cbsdLog::DEBUG,  "Node has module " + module->getName() + ", enabling it!");
 	}
+	data=data.substr(sizeof(CNINIT_t)+(items*2));
 
-
-	switch(*cmd){					// Warning; Below is where fairies get murdered!
-							// Temporary stuff / needs cleanup
-		case 0:{
-				if(*params != 1){	// Currently we only have 1 parameter and that is an array of uint16's (mod_id's)
-					Log(cbsdLog::WARNING, "Node is signing on with invalid parameters");
-					break;
-				}
-				if(data.size()-6 < *tmp){
-					Log(cbsdLog::WARNING, "Node is sending incomplete packages");
-					return(false);
-				} else {	// Just acts as a container; Because I want to use a local var in this switch statement...
-
-					uint16_t items=*tmp/2;
-					for(uint16_t i=1; i<=items; i++){
-						tmp++; 
-						cbsdModule *module=CBSD->Nodes()->getModule(*tmp);
-						if(NULL == module){
-							Log(cbsdLog::DEBUG, "Node has module " + std::to_string(*tmp) + " and we don't");
-							continue;			// Not found/unknown, we skip it/do not enable it.
-						}
-						m_modules[*tmp]=module;			// Add module to the node's enabled modules list
-						Log(cbsdLog::DEBUG,  "Node has module " + module->getName() + ", enabling it!");
-					}
-					data=data.substr(6+(items*2));
-				}
-
-
-				// Temporary and ugly way to send back the list of modules we support...
-				std::string response;
-				uint16_t tval=m_modules.size();		// Deviate from the protocol a bit here for now.. :-/
-				response.append((char *)&tval,2);
-				for (std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++){ tval=it->first; response.append((char *)&tval,2); }
-				transmitRaw(response);			// Temporary to make this work for now.
-				m_has_negotiated=true;		
-				m_is_authenticated=true;		// TODO: for now it's OK we have certs and firewall..
-			}
-			break;
-
-		default:
-			Log(cbsdLog::WARNING, "Node said something unknown/invalid!");
-			break;
-
-	}
-
-	return(false);
+	// Temporary and ugly way to send back the list of modules we support...
+	std::string response;
+	uint16_t tval=m_modules.size();		// Deviate from the protocol a bit here for now.. :-/
+	response.append((char *)&tval,2);
+	for (std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin(); it != m_modules.end(); it++){ tval=it->first; response.append((char *)&tval,2); }
+	transmitRaw(response);			// Temporary to make this work for now.
+	m_has_negotiated=true;		
+	m_is_authenticated=true;		// TODO: for now it's OK we have certs and firewall..
+	return(true);
 }
 
 
@@ -150,7 +135,7 @@ void cbsdNode::_hasData(const std::string &in_data){			// Todo: make this better
 	uint16_t *tmp=(uint16_t *)data.data();
 	uint16_t channel=*tmp;
 
-	if(!m_is_authenticated){ if(!_doAuth(data, channel)) return; } 
+	if(!m_is_authenticated){ if(!_doAuth(data, channel)){ doDisconnect(); return; }  }
 
 	while(data.size() > 2){
 		tmp=(uint16_t *)data.data(); channel=*tmp;		// TODO: Fix this
@@ -201,23 +186,61 @@ void cbsdNode::_readyForData(){
  */
 void cbsdNode::setPerfdata(const uint16_t what, uint64_t val){
 	switch(what){
-		case 0: 
-		{
-			std::map<std::string,std::string> stats;
-			m_performance=val; 	// pcpu, pmem, temperature, openfiles
-			stats["cpu"]=std::to_string(0|m_pcpu);
-			stats["mem"]=std::to_string(0|m_pmem);
-			stats["openfiles"]=std::to_string(m_openfiles);
-			stats["temperature"]=std::to_string(m_temperature);
-			stats["module"]="1";
+		case 0: m_performance=val; break;	// pcpu, pmem, temperature, openfiles TODO: Seperate changed items and push them to redis
 
-			Log(cbsdLog::DEBUG, stats); 
-
-			break;
-		}
+//		{
+//			std::map<std::string,std::string> stats;	// 
+//			stats["cpu"]=std::to_string(0|m_pcpu);
+//			stats["mem"]=std::to_string(0|m_pmem);
+//			stats["openfiles"]=std::to_string(m_openfiles);
+//			stats["temperature"]=std::to_string(m_temperature);
+//			stats["module"]="1";
+//			Log(cbsdLog::DEBUG, stats); 
+//			break;
+//		}
 		case 1: Log(cbsdLog::WARNING, "Invalid perfdata type!"); break;
 	}
 }
 
+std::string cbsdNode::getJSON(uint32_t flags){
+	std::string output="{\"type\":\"node\",\"name\":\"" + m_name +"\"";
 
+	if(m_id != 0) output.append(",\"gid\":" + std::to_string(m_id));			// Global ID
+	output.append(",\"seen\":" + std::to_string(m_last_seen));				// Timestamp
+	output.append(",\"state\":\"" + std::string(m_is_authenticated?"connected":"offline")+"\"");
+	output.append(",\"maintenance\":" + std::string(m_is_maintenance?"1":"0"));
+
+	output.append(",\"arch\":\"amd64\"");
+	output.append(",\"cores\":" + std::to_string(12)); //m_bhyvecount));			// 
+	output.append(",\"memory\":" + std::to_string(128*1024)); //m_bhyvecount));			// 
+	
+	output.append(",\"stats\":{\"pcpu\":" + std::to_string(m_pcpu));			// CPU Usage
+	output.append(",\"pmem\":" + std::to_string(m_pmem));					// RAM Usage
+	output.append(",\"files\":" + std::to_string(m_openfiles));				// Open files
+	output.append(",\"temp\":" + std::to_string(m_temperature));				// Temperature
+
+	output.append(",\"jails\":" + std::to_string(5)); //m_jailcount));			// 
+	output.append(",\"bhyves\":" + std::to_string(16)); //m_bhyvecount));			// 
+
+	output.append("}");
+
+	if(1 & flags && m_tasks.size() > 0){
+		output.append(",\"tasks\":{");
+		// Add them
+		output.append("}");
+	}
+	if(1 & flags && m_jails.size() > 0){
+		output.append(",\"jails\":{");
+		// Add them
+		output.append("}");
+	}
+	if(1 & flags && m_modules.size() > 0){
+		std::map<uint16_t, cbsdModule *>::iterator it = m_modules.begin();
+		output.append(",\"modules\":["+std::to_string(it->first));
+		for (it++; it != m_modules.end(); it++) output.append((char *)&it->first,2); 
+		output.append("]");
+	}
+
+	return(output + "}");
+}
 
